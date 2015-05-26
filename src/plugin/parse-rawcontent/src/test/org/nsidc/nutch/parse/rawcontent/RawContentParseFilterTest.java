@@ -1,0 +1,123 @@
+package org.nsidc.nutch.parse.rawcontent;
+
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.endsWith;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Matchers.startsWith;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.nutch.metadata.Metadata;
+import org.apache.nutch.parse.Parse;
+import org.apache.nutch.parse.ParseData;
+import org.apache.nutch.parse.ParseResult;
+import org.apache.nutch.protocol.Content;
+import org.junit.Test;
+
+
+public class RawContentParseFilterTest {
+
+	@Test
+	public void filter_should_create_a_metadata_key_for_raw_content() {
+		// arrange
+		Metadata mockMetadata = mock(Metadata.class);
+		ParseResult mockParseResult = createMockParseResultWithMetadata(mockMetadata);
+		Content fakeContent = createFakeContent("");
+
+		RawContentParseFilter parseFilter = new RawContentParseFilter();
+
+		// act
+		parseFilter.filter(fakeContent, mockParseResult, null, null);
+
+		// assert
+		verify(mockMetadata).add(eq(RawContentParseFilter.RAW_CONTENT), anyString());
+	}
+
+	//TODO: This needs to be refactored to make tests easier.
+	@Test
+	public void filter_should_add_raw_content() {
+		// arrange
+		String contentValue = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?> <some>xml </some>";
+		Metadata mockMetadata = mock(Metadata.class);
+		ParseResult mockParseResult = createMockParseResultWithMetadata(
+				mockMetadata);
+		Content fakeContent = createFakeContent("http://fake.url", contentValue);
+
+		RawContentParseFilter parseFilter = new RawContentParseFilter();
+
+		// act
+		parseFilter.filter(fakeContent, mockParseResult, null, null);
+
+		// assert
+		verify(mockMetadata).add(anyString(), startsWith("<?xml"));
+		verify(mockMetadata).add(anyString(), endsWith("</some>"));
+
+	}
+
+
+	@Test
+	public void filter_should_modify_and_return_the_same_ParseResult() {
+		// arrange
+		ParseResult mockParseResult = createMockParseResult();
+		Content fakeContent = createFakeContent("");
+
+		RawContentParseFilter parseFilter = new RawContentParseFilter();
+
+		// act
+		ParseResult returnedParseResult = parseFilter.filter(fakeContent, mockParseResult, null, null);
+
+		// assert
+		assertTrue(returnedParseResult.equals(mockParseResult));
+	}
+
+	@Test
+	public void filter_should_get_the_ParseResult_based_on_the_Content_url() {
+		// arrange
+		final String url = "http://some.document.url/123?abc";
+		ParseResult mockParseResult = createMockParseResult();
+		Content fakeContent = createFakeContent(url);
+
+		RawContentParseFilter parseFilter = new RawContentParseFilter();
+
+		// act
+		parseFilter.filter(fakeContent, mockParseResult, null, null);
+
+		// assert
+		verify(mockParseResult).get(eq(url));
+	}
+
+
+	private ParseResult createMockParseResultWithMetadata(Metadata mockMetadata) {
+		ParseData parseData = new ParseData();
+		Parse mockParse = mock(Parse.class);
+		ParseResult mockParseResult = mock(ParseResult.class);
+
+		if (mockMetadata != null) {
+			parseData.setParseMeta(mockMetadata);
+		}
+		when(mockParse.getData()).thenReturn(parseData);
+		when(mockParseResult.get(anyString())).thenReturn(mockParse);
+		return mockParseResult;
+	}
+
+	private ParseResult createMockParseResult() {
+		return createMockParseResultWithMetadata(null);
+	}
+
+	private Content createFakeContent(final String url) {
+		return createFakeContent(url, null);
+	}
+
+	private Content createFakeContent(final String url, final String content) {
+		byte[] contentByteArray = {};
+		if (content != null) {
+			contentByteArray = content.getBytes();
+		}
+		Content fakeContent = new Content(url, "", contentByteArray, null, mock(Metadata.class), mock(Configuration.class));
+		return fakeContent;
+	}
+
+}

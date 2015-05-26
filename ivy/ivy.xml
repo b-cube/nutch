@@ -84,6 +84,10 @@
 
 		<!--artifacts needed for testing -->
 		<dependency org="junit" name="junit" rev="4.11" conf="test->default" />
+		<dependency org="org.mockito" name="mockito-all" rev="1.9.5" conf="test->default">
+		    			<exclude org="org.mortbay.jetty" name="jsp-*" />
+			            <exclude org="junit" name="junit" />
+		</dependency>
 
 		<dependency org="org.apache.hadoop" name="hadoop-test" rev="1.2.0"
 			conf="test->default" />

@@ -5,3 +5,7 @@ conf/slaves
 build/
 runtime/
 logs/
+crawl*
+hadoop.log
+.classpath
+.project

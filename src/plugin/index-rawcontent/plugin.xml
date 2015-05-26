@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<plugin id="index-rawcontent" name="Raw Content Indexing Filter" version="1.0" provider-name="nutch.org">
+
+   	<runtime>
+      	<library name="index-rawcontent.jar">
+         	<export name="*"/>
+      	</library>
+      	<library name="log4j.jar"/>
+   	</runtime>
+
+   	<requires>
+      	<import plugin="nutch-extensionpoints"/>
+   	</requires>
+
+   	<extension id="org.nsidc.nutch.indexer.rawcontent" name="Raw Content Indexing Filter" point="org.apache.nutch.indexer.IndexingFilter">
+      	<implementation id="org.nsidc.nutch.indexer.rawcontent" class="org.nsidc.nutch.index.rawcontent.RawContentIndexingFilter"/>
+   	</extension>
+
+</plugin>
