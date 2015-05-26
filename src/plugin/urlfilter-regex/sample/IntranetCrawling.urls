@@ -3,6 +3,6 @@
 -mailto:jerome.charron@gmail.com
 -news://any.news.server/comp.lang.java
 -whois:/nutch.org
-+http://MY.DOMAIN.NAME/
-+http://MY.DOMAIN.NAME/nutch
-+http://www.MY.DOMAIN.NAME/
++http://my.domain.name/
++http://my.domain.name/nutch
++http://www.my.domain.name/
