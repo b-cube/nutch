@@ -18,6 +18,8 @@
 <!-- Imported by plugin build.xml files to define default targets. -->
 <project xmlns:ivy="antlib:org.apache.ivy.ant">
 
+  <property name="remoteDebug" value="false"/>
+  <property name="pluginTestsOutput" value="false"/>
   <property name="name" value="${ant.project.name}"/>
   <property name="root" value="${basedir}"/>
 
@@ -202,10 +204,17 @@
   <!-- Run unit tests                                                     --> 
   <!-- ================================================================== -->
   <target name="test" depends="compile-test, deploy" if="test.available">
+    <condition property="remoteDebugJvmArgs"
+      value="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8787"
+      else="-ea">
+        <istrue value="${remoteDebug}"/>
+    </condition>
     <echo message="Testing plugin: ${name}"/>
 
-    <junit printsummary="yes" haltonfailure="no" fork="yes"
-      errorProperty="tests.failed" failureProperty="tests.failed">
+    <junit printsummary="yes" haltonfailure="no" fork="yes" forkmode="once"
+      errorProperty="tests.failed" failureProperty="tests.failed" showoutput="${pluginTestsOutput}">
+      <jvmarg value="${remoteDebugJvmArgs}"/>
+    		
       <sysproperty key="test.data" value="${build.test}/data"/>
       <sysproperty key="test.input" value="${root}/data"/>
       <sysproperty key="javax.xml.parsers.DocumentBuilderFactory" value="com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl"/> 

@@ -1074,6 +1074,14 @@
   </description>
 </property>
 
+
+<property>
+  <name>mime.type.synonyms.file</name>
+  <value></value>
+  <description>Used to create synonyms for composite mime types for Tika
+  </description>
+</property>
+
 <!-- plugin properties -->
 
 <property>

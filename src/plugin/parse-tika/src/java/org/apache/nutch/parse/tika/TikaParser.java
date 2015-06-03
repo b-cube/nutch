@@ -63,10 +63,16 @@ public class TikaParser implements org.apache.nutch.parse.Parser {
   private String cachingPolicy;
   private HtmlMapper HTMLMapper;
   private boolean upperCaseElementNames = true;
+  private MimeTypeSynonyms tikaSynonyms;
 
   @SuppressWarnings("deprecation")
   public ParseResult getParse(Content content) {
-    String mimeType = content.getContentType();
+	String mimeType = content.getContentType();
+	
+	if (tikaSynonyms.isReplacementEnabled()) {
+		mimeType = tikaSynonyms.replace(mimeType);
+		LOG.debug("Using " + mimeType + " instead of " + content.getContentType());
+	} 
 
     URL base;
     try {
@@ -197,6 +203,7 @@ public class TikaParser implements org.apache.nutch.parse.Parser {
   public void setConf(Configuration conf) {
     this.conf = conf;
     this.tikaConfig = null;
+    this.tikaSynonyms = new MimeTypeSynonyms(conf);
 
     // do we want a custom Tika configuration file
     // deprecated since Tika 0.7 which is based on
