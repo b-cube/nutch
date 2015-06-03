@@ -105,8 +105,9 @@ public class CrawlDb extends NutchTool implements Tool {
     if (LOG.isInfoEnabled()) {
       LOG.info("CrawlDb update: Merging segment data into db.");
     }
+    RunningJob crawlDBJob = null;
     try {
-      JobClient.runJob(job);
+    	crawlDBJob = JobClient.runJob(job);
     } catch (IOException e) {
       LockUtil.removeLockFile(fs, lock);
       Path outPath = FileOutputFormat.getOutputPath(job);
@@ -117,6 +118,8 @@ public class CrawlDb extends NutchTool implements Tool {
 
     CrawlDb.install(job, crawlDb);
     long end = System.currentTimeMillis();
+    long urlsFilteredByRegex = crawlDBJob.getCounters().findCounter("CrawlDB", "urls_filtered_by_regex").getValue();
+    LOG.info("CrawlDb update: Total number of URLs filtered by regex filters: " + urlsFilteredByRegex);
     LOG.info("CrawlDb update: finished at " + sdf.format(end) + ", elapsed: "
         + TimingUtil.elapsedTime(start, end));
   }
