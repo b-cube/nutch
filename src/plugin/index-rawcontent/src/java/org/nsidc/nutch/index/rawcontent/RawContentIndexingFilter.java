@@ -19,15 +19,13 @@ public class RawContentIndexingFilter implements IndexingFilter {
 
 	public NutchDocument filter(NutchDocument doc, Parse parse, Text url,
 			CrawlDatum datum, Inlinks inlinks) throws IndexingException {
-		
+
 		String content = parse.getData().getMeta("raw_content");
-		
-		if (content != null) {
-		  doc.add("raw_content", content);
+
+		if (content != null && doc != null) {
+			doc.add("raw_content", content);
 		}
-
 		return doc;
-
 	}
 
 	@Override

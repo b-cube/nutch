@@ -35,6 +35,9 @@
      <ant dir="index-more" target="deploy"/>
      <ant dir="index-static" target="deploy"/>
      <ant dir="index-rawcontent" target="deploy"/>
+     <ant dir="index-xmlnamespaces" target="deploy"/>
+     <ant dir="index-bcubefilter" target="deploy"/>
+     <ant dir="index-links" target="deploy"/>
      <ant dir="index-metadata" target="deploy"/>
      <ant dir="mimetype-filter" target="deploy"/>
      <ant dir="indexer-dummy" target="deploy"/>
@@ -95,6 +98,9 @@
      <ant dir="index-more" target="test"/>
      <ant dir="index-static" target="test"/>
      <ant dir="index-rawcontent" target="test"/>
+     <ant dir="index-xmlnamespaces" target="test"/>
+     <ant dir="index-bcubefilter" target="test"/>
+     <ant dir="index-links" target="test"/>
      <ant dir="mimetype-filter" target="test"/>
      <ant dir="language-identifier" target="test"/>
      <ant dir="lib-http" target="test"/>
@@ -140,6 +146,9 @@
     <ant dir="index-more" target="clean"/>
     <ant dir="index-static" target="clean"/>
     <ant dir="index-rawcontent" target="clean"/>
+    <ant dir="index-xmlnamespaces" target="clean"/>
+    <ant dir="index-bcubefilter" target="clean"/>
+    <ant dir="index-links" target="clean"/>
     <ant dir="index-metadata" target="clean"/>
     <ant dir="mimetype-filter" target="clean"/>
     <ant dir="indexer-dummy" target="clean"/>

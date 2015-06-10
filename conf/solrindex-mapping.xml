@@ -24,7 +24,7 @@
              in field/@source will be renamed to the corresponding
              field/@dest.
              Additionally, if a field name (before mapping) matches
-             a copyField/@source then its values will be copied to 
+             a copyField/@source then its values will be copied to
              the corresponding copyField/@dest.
 
              uniqueKey has the same meaning as in Solr schema.xml
@@ -38,6 +38,10 @@
     <field dest="boost" source="boost"/>
     <field dest="digest" source="digest"/>
     <field dest="tstamp" source="tstamp"/>
+    <field dest="raw_content" source="raw_content"/>
+    <field dest="xml_namespaces" source="xml_namespaces"/>
+    <field dest="inlinks" source="inlinks"/>
+    <field dest="outlinks" source="outlinks"/>
   </fields>
   <uniqueKey>id</uniqueKey>
 </mapping>

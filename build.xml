@@ -589,6 +589,9 @@
       <packageset dir="${plugins.dir}/index-metadata/src/java"/>
       <packageset dir="${plugins.dir}/index-more/src/java"/>
       <packageset dir="${plugins.dir}/index-static/src/java"/>
+      <packageset dir="${plugins.dir}/index-xmlnamespaces/src/java"/>
+      <packageset dir="${plugins.dir}/index-bcubefilter/src/java"/>
+      <packageset dir="${plugins.dir}/links-extractor/src/java"/>
       <packageset dir="${plugins.dir}/mimetype-filter/src/java"/>
       <packageset dir="${plugins.dir}/indexer-dummy/src/java"/>
       <packageset dir="${plugins.dir}/indexer-elastic/src/java/" />
@@ -991,6 +994,12 @@
         <source path="${plugins.dir}/index-static/src/test/" />
         <source path="${plugins.dir}/index-rawcontent/src/java/" />
         <source path="${plugins.dir}/index-rawcontent/src/test/" />
+        <source path="${plugins.dir}/index-xmlnamespaces/src/java"/>
+        <source path="${plugins.dir}/index-xmlnamespaces/src/test"/>
+        <source path="${plugins.dir}/index-bcubefilter/src/java"/>
+        <source path="${plugins.dir}/index-bcubefilter/src/test"/>
+        <source path="${plugins.dir}/index-links/src/java"/>
+        <source path="${plugins.dir}/index-links/src/test"/>
         <source path="${plugins.dir}/language-identifier/src/java/" />
         <source path="${plugins.dir}/language-identifier/src/test/" />
         <source path="${plugins.dir}/lib-http/src/java/" />
