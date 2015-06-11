@@ -351,13 +351,17 @@
     <!-- field for index-links plugin -->
     <field name="inlinks" type="string" stored="true" indexed="true" multiValued="true"/>
     <field name="outlinks" type="string" stored="true" indexed="true" multiValued="true"/>
+    <!-- field for index-bcubefilter plugin -->
+    <field name="url_hash" type="string" stored="true" indexed="true" multiValued="false"/>
+    <!-- field for index-httpresponse plugin -->
+    <field name="response_headers" type="string" stored="true" indexed="true" multiValued="true"/>
 
     <field name="_version_" type="long" stored="true" indexed="true" multiValued="false"/>
  </fields>
 
 
  <uniqueKey>id</uniqueKey>
- <defaultSearchField>content</defaultSearchField>
+ <defaultSearchField>raw_content</defaultSearchField>
  <solrQueryParser defaultOperator="OR"/>
 
 </schema>

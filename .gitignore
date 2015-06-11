@@ -9,3 +9,6 @@ crawl*
 hadoop.log
 .classpath
 .project
+.idea
+*.iml
+.tmp

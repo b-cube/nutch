@@ -23,6 +23,7 @@ import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Text;
 import org.apache.nutch.crawl.CrawlDatum;
+import org.apache.nutch.crawl.Inlink;
 import org.apache.nutch.crawl.Inlinks;
 import org.apache.nutch.indexer.IndexingException;
 import org.apache.nutch.indexer.IndexingFilter;
@@ -54,6 +55,8 @@ public class DiscardBCubeIndexingFilter implements IndexingFilter {
     throws IndexingException {
 	  // For now just the mime type affects this filter 
 	  if(mimeTypeFilter(doc) && urlFilter(doc) && relevantOrNot(doc)) {
+          doc.removeField("content"); // we don't want it.
+          // doc.setWeight(1); // Do something here
 		  return doc;
 	  }
 	  return null;
@@ -66,7 +69,7 @@ public class DiscardBCubeIndexingFilter implements IndexingFilter {
   
   public boolean relevantOrNot(NutchDocument doc) {
 	  //TODO [This method will send the URL, anchor text and perhaps 
-	  //  a set of limited tokens to a service that will decide 
+	  //  a set of limited tokens to a service that will decide
 	  //  if it is relevant (meaning is a web service or data) 
 	  //  and therefore it should be indexed.
 	  return true;

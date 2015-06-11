@@ -61,9 +61,9 @@
 </property>
 
 <property>
-    <name>db.url.filters</name>
+    <name>crawldb.url.filters</name>
     <value>true</value>
-    <description>Filter urls when updating crawldb</description>
+    <description>Filter urls when updating crawldb NOTE: this is the property that was wrong in the original config file</description>
 </property>
 
 <property>
@@ -76,7 +76,7 @@
 
 <property>
   <name>db.ignore.internal.links</name>
-  <value>true</value>
+  <value>false</value>
   <description>If true, when adding new links to a page, links from
   the same host are ignored.  This is an effective way to limit the
   size of the link database, keeping only the highest quality
@@ -121,7 +121,7 @@
 
     <property>
       <name>parse.filter.urls</name>
-      <value>true</value>
+      <value>false</value>
       <description>Whether the parser will filter URLs (with the configured URL filters).</description>
     </property>
 

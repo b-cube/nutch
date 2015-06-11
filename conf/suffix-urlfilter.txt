@@ -100,8 +100,8 @@
 
 # windows links
 .lnk
-.xls
 .ppt
+.pptx
 .doc
 .docx
 
@@ -110,13 +110,18 @@
 
 # disc-images
 .iso
+.img
 .bin
 
 # scientific data files
 .hdf
 .nc
 .nc4
+.ddx
+.kml
 
 # xml we don't care
 .xls
+.xsd
+.dtd
 .xhtml
