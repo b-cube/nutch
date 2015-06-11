@@ -360,7 +360,7 @@
  </fields>
 
 
- <uniqueKey>id</uniqueKey>
+ <uniqueKey>url_hash</uniqueKey>
  <defaultSearchField>raw_content</defaultSearchField>
  <solrQueryParser defaultOperator="OR"/>
 

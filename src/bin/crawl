@@ -14,7 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # Usage: crawl [-i|--index] [-D "key=value"] <Seed Dir> <Crawl Dir> <Num Rounds>
 #    -i|--index      Indexes crawl results into a configured indexer
 #    -D              A Java property to pass to Nutch calls
@@ -22,8 +22,8 @@
 #    Crawl Dir       Directory where the crawl/link/segments dirs are saved
 #    Num Rounds      The number of rounds to run this crawl for
 #
-# 
-# UNLIKE THE NUTCH ALL-IN-ONE-CRAWL COMMAND THIS SCRIPT DOES THE LINK INVERSION AND 
+#
+# UNLIKE THE NUTCH ALL-IN-ONE-CRAWL COMMAND THIS SCRIPT DOES THE LINK INVERSION AND
 # INDEXING FOR EACH SEGMENT
 
 INDEXFLAG=false
@@ -66,19 +66,15 @@ LIMIT="$3"
 # set the number of slaves nodes
 numSlaves=1
 
-# and the total number of available tasks
-# sets Hadoop parameter "mapred.reduce.tasks"
-numTasks=`expr $numSlaves \* 2`
 
-# number of urls to fetch in one iteration
-# 250K per task?
-sizeFetchlist=`expr $numSlaves \* 50000`
+
+
 
 # time limit for feching
-timeLimitFetch=180
+timeLimitFetch=40
 
 # num threads for fetching
-numThreads=50
+numThreads=128
 
 #############################################
 
@@ -91,11 +87,7 @@ if [ -f "${bin}"/../*nutch*.job ]; then
     mode=distributed
 fi
 
-# note that some of the options listed here could be set in the 
-# corresponding hadoop site xml param file 
-commonOptions="-D mapred.reduce.tasks=$numTasks -D mapred.child.java.opts=-Xmx1000m -D mapred.reduce.tasks.speculative.execution=false -D mapred.map.tasks.speculative.execution=false -D mapred.compress.map.output=true"
-
- # check that hadoop can be found on the path 
+ # check that hadoop can be found on the path
 if [ $mode = "distributed" ]; then
  if [ $(which hadoop | wc -l ) -eq 0 ]; then
     echo "Can't find Hadoop executable. Add HADOOP_HOME/bin to the path or run in local mode."
@@ -123,8 +115,13 @@ function __bin_nutch {
 
 
 # initial injection
-echo "Injecting seed URLs"
-__bin_nutch inject "$CRAWL_PATH"/crawldb "$SEEDDIR"
+if [ $SEEDDIR = "-noinject" ]; then
+    echo "No new urls will be injected"
+    exit 0
+else
+    echo "Injecting seed URLs"
+    __bin_nutch inject "$CRAWL_PATH"/crawldb "$SEEDDIR"
+fi
 
 
 # main loop : rounds of generate - fetch - parse - update
@@ -135,6 +132,23 @@ do
    echo "STOP file found - escaping loop"
    break
   fi
+
+  # This is dinamically changed because the cluster size may vary in EMR.
+  if [ $mode = "local" ]; then
+    numSlaves=1
+  else
+    numSlaves=`hadoop dfsadmin -report | grep ^Name | cut -f2 -d: | cut -f2 -d' ' | wc -l`
+  fi
+  # and the total number of available tasks
+  # sets Hadoop parameter "mapred.reduce.tasks"
+  # This also depends on which type of instance we are using in EMR
+  numTasks=`expr $numSlaves \* 2`
+  # number of urls to fetch in one iteration
+  sizeFetchlist=`expr $numSlaves \* 50000`
+  # note that some of the options listed here could be set in the
+  # corresponding hadoop site xml param file // -D mapred.child.java.opts=-Xmx2048m for m3xlarge
+  commonOptions="-D mapred.max.map.failures.percent=5 -D mapred.max.reduce.failures.percent=5 -D mapred.reduce.tasks=$numTasks -D mapred.child.java.opts=-Xmx4096m -D mapred.task.timeout=900000 -D mapred.reduce.tasks.speculative.execution=false -D mapred.map.tasks.speculative.execution=false -D mapred.compress.map.output=true"
+
 
   echo `date` ": Iteration $a of $LIMIT"
 
@@ -165,7 +179,7 @@ do
   else
    SEGMENT=`hadoop fs -ls "$CRAWL_PATH"/segments/ | grep segments |  sed -e "s/\//\\n/g" | egrep 20[0-9]+ | sort -n | tail -n 1`
   fi
-  
+
   echo "Operating on segment : $SEGMENT"
 
   # fetching the segment
@@ -174,7 +188,7 @@ do
 
   # parsing the segment
   echo "Parsing : $SEGMENT"
-  # enable the skipping of records for the parsing so that a dodgy document 
+  # enable the skipping of records for the parsing so that a dodgy document
   # so that it does not fail the full task
   skipRecordsOptions="-D mapred.skip.attempts.to.start.skipping=2 -D mapred.skip.map.max.skip.records=1"
   __bin_nutch parse $commonOptions $skipRecordsOptions "$CRAWL_PATH"/segments/$SEGMENT
@@ -183,7 +197,7 @@ do
   echo "CrawlDB update"
   __bin_nutch updatedb $commonOptions "$CRAWL_PATH"/crawldb  "$CRAWL_PATH"/segments/$SEGMENT
 
-# note that the link inversion - indexing routine can be done within the main loop 
+# note that the link inversion - indexing routine can be done within the main loop
 # on a per segment basis
   echo "Link inversion"
   __bin_nutch invertlinks "$CRAWL_PATH"/linkdb "$CRAWL_PATH"/segments/$SEGMENT
@@ -194,13 +208,30 @@ do
   if $INDEXFLAG; then
       echo "Indexing $SEGMENT to index"
       __bin_nutch index $JAVA_PROPERTIES "$CRAWL_PATH"/crawldb -linkdb "$CRAWL_PATH"/linkdb "$CRAWL_PATH"/segments/$SEGMENT
-  
+
       echo "Cleaning up index if possible"
       __bin_nutch clean $JAVA_PROPERTIES "$CRAWL_PATH"/crawldb
   else
       echo "Skipping indexing ..."
   fi
-  
+
+  # By default we delete the segments (content) that's already indexed.
+  echo "Deleting indexed segments"
+  if [ $mode = "local" ]; then
+    rm -rf "$CRAWL_PATH"/segments/$SEGMENT
+  else
+    hadoop fs -rmr "$CRAWL_PATH"/segments/$SEGMENT
+  fi
+
+
+  if [ $mode = "distributed" ]; then
+    echo "Copying CrawlDB to S3"
+    hadoop distcp -overwrite /home/hadoop/crawl s3://bcube-crawl/crawl
+  fi
+
+
+
+
   #######################################################
   # The following commands fall into WebGraph territory
   # and should be uncommented based on your requirements

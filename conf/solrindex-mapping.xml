@@ -31,6 +31,7 @@
              and defaults to "id" if not defined.
          -->
   <fields>
+    <field dest="url_hash" source="url_hash"/>
     <field dest="title" source="title"/>
     <field dest="host" source="host"/>
     <field dest="segment" source="segment"/>
@@ -41,6 +42,7 @@
     <field dest="xml_namespaces" source="xml_namespaces"/>
     <field dest="inlinks" source="inlinks"/>
     <field dest="outlinks" source="outlinks"/>
+    <field dest="response_headers" source="response_headers"/>
   </fields>
-  <uniqueKey>id</uniqueKey>
+  <uniqueKey>url_hash</uniqueKey>
 </mapping>

@@ -64,6 +64,7 @@
 .rpm
 .deb
 .pkg
+.bz2
 
 # audio/video
 .mid
@@ -92,6 +93,7 @@
 .avi
 .au
 .snd
+.m4v
 
 # executables
 .exe
@@ -104,6 +106,12 @@
 .pptx
 .doc
 .docx
+.xls
+.xlsx
+.dbf
+.buf
+.sxh
+.dat
 
 # typo3-extensions
 .t3x
@@ -119,9 +127,9 @@
 .nc4
 .ddx
 .kml
+.kmz
 
 # xml we don't care
-.xls
 .xsd
 .dtd
 .xhtml

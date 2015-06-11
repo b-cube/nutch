@@ -54,25 +54,19 @@
     </description>
   </property>
 
-<property>
-    <name>db.url.normalizers</name>
-    <value>false</value>
-    <description>Normalize urls when updating crawldb</description>
-</property>
-
-<property>
+  <property>
     <name>crawldb.url.filters</name>
-    <value>true</value>
+    <value>false</value>
     <description>Filter urls when updating crawldb NOTE: this is the property that was wrong in the original config file</description>
-</property>
+  </property>
 
-<property>
-  <name>db.update.max.inlinks</name>
-  <value>10000</value>
-  <description>Maximum number of inlinks to take into account when updating
-  a URL score in the crawlDB. Only the best scoring inlinks are kept.
-  </description>
-</property>
+  <property>
+    <name>db.update.max.inlinks</name>
+    <value>1000</value>
+    <description>Maximum number of inlinks to take into account when updating
+    a URL score in the crawlDB. Only the best scoring inlinks are kept.
+    </description>
+  </property>
 
 <property>
   <name>db.ignore.internal.links</name>
@@ -118,12 +112,6 @@
 </property>
 
   <!-- END of DB properties -->
-
-    <property>
-      <name>parse.filter.urls</name>
-      <value>false</value>
-      <description>Whether the parser will filter URLs (with the configured URL filters).</description>
-    </property>
 
   <property>
     <name>http.content.limit</name>
@@ -184,7 +172,7 @@
 
   <property>
     <name>indexingfilter.bcube.allowed.mimetypes</name>
-    <value>application/xml text/xml json opensearch rdf wsdl wadl application/txt text/plain</value>
+    <value>application/xml text/xml json opensearch rdf wsdl wadl xml</value>
     <description>
         Determines the allowed mime types to index. It performs a partial matching, i.e.
         if a document has application/json and a value in this property is json or tion/json then that
@@ -213,7 +201,7 @@
 
     <property>
       <name>generate.max.count</name>
-      <value>5000</value>
+      <value>4000</value>
       <description>The maximum number of urls in a single
       fetchlist.  -1 if unlimited. The urls are counted according
       to the value of the parameter generator.count.mode.
@@ -268,7 +256,7 @@
 
   <property>
     <name>fetcher.threads.fetch</name>
-    <value>48</value>
+    <value>128</value>
     <description>The number of FetcherThreads the fetcher should use.
     This is also determines the maximum number of requests that are
     made at once (each FetcherThread handles one connection). The total
@@ -285,7 +273,7 @@
 
   <property>
     <name>fetcher.threads.per.queue</name>
-    <value>2</value>
+    <value>4</value>
     <description>This number is the maximum number of threads that
       should be allowed to access a queue at one time. Replaces
       deprecated parameter 'fetcher.threads.per.host'.
@@ -317,7 +305,7 @@
 
   <property>
     <name>fetcher.timelimit.mins</name>
-    <value>30</value>
+    <value>60</value>
     <description>This is the number of minutes allocated to the fetching.
     Once this value is reached, any remaining entry from the input URL list is skipped
     and all active queues are emptied. The default value of -1 deactivates the time limit.
@@ -346,7 +334,7 @@
 
   <property>
     <name>fetcher.throughput.threshold.retries</name>
-    <value>2</value>
+    <value>3</value>
     <description>The number of times the fetcher.throughput.threshold is allowed to be exceeded.
     This settings prevents accidental slow downs from immediately killing the fetcher thread.
     </description>
@@ -367,10 +355,38 @@
   </property>
 
 <property>
+  <name>fetcher.bandwidth.target</name>
+  <value>-1</value>
+  <description>Target bandwidth in kilobits per sec for each mapper instance. This is used to adjust the number of
+  fetching threads automatically (up to fetcher.maxNum.threads). A value of -1 deactivates the functionality, in which case
+  the number of fetching threads is fixed (see fetcher.threads.fetch).</description>
+</property>
+
+<property>
+  <name>fetcher.maxNum.threads</name>
+  <value>80</value>
+  <description>Max number of fetch threads allowed when using fetcher.bandwidth.target. Defaults to fetcher.threads.fetch if unspecified or
+  set to a value lower than it. </description>
+</property>
+
+<property>
+  <name>fetcher.bandwidth.target.check.everyNSecs</name>
+  <value>30</value>
+  <description>(EXPERT) Value in seconds which determines how frequently we should reassess the optimal number of fetch threads when using
+   fetcher.bandwidth.target. Defaults to 30 and must be at least 1.</description>
+</property>
+
+<property>
   <name>mime.type.synonyms.file</name>
   <value>mimetype-synonyms.txt</value>
   <description>Used to create synonyms for composite mime types for Tika
   </description>
+</property>
+
+<property>
+  <name>parse.filter.urls</name>
+  <value>true</value>
+  <description>Whether the parser will filter URLs (with the configured URL filters).</description>
 </property>
 
 
@@ -396,7 +412,7 @@
 
 <property>
   <name>solr.server.url</name>
-  <value>http://localhost:8983/solr</value>
+  <value>http://52.26.140.145:8888/solr</value>
   <description>
       Solr
   </description>
@@ -404,25 +420,11 @@
 
 <property>
   <name>solr.auth</name>
-  <value>true</value>
+  <value>false</value>
   <description>
   Whether to enable HTTP basic authentication for communicating with Solr.
   Use the solr.auth.username and solr.auth.password properties to configure
   your credentials.
-  </description>
-</property>
-
-<property>
-  <name>solr.auth.username</name>
-  <value>bcube</value>
-  <description>
-  </description>
-</property>
-
-<property>
-  <name>solr.auth.password</name>
-  <value>abcd123</value>
-  <description>
   </description>
 </property>
 

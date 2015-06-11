@@ -20,6 +20,7 @@ package org.apache.nutch.indexer.bcubefilter;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Text;
 import org.apache.nutch.crawl.CrawlDatum;
@@ -28,6 +29,7 @@ import org.apache.nutch.crawl.Inlinks;
 import org.apache.nutch.indexer.IndexingException;
 import org.apache.nutch.indexer.IndexingFilter;
 import org.apache.nutch.indexer.NutchDocument;
+import org.apache.nutch.metadata.HttpHeaders;
 import org.apache.nutch.parse.Parse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,9 +55,13 @@ public class DiscardBCubeIndexingFilter implements IndexingFilter {
   */
   public NutchDocument filter(NutchDocument doc, Parse parse, Text url, CrawlDatum datum, Inlinks inlinks)
     throws IndexingException {
-	  // For now just the mime type affects this filter 
+	  // For now just the mime type affects this filter
 	  if(mimeTypeFilter(doc) && urlFilter(doc) && relevantOrNot(doc)) {
           doc.removeField("content"); // we don't want it.
+          doc.add("url_hash", DigestUtils.shaHex(doc.getFieldValue("id").toString()));
+          for (String header: parse.getData().getContentMeta().names()) {
+        	  doc.add("response_headers", header + ": " + parse.getData().getContentMeta().get(header));          	  
+          }          
           // doc.setWeight(1); // Do something here
 		  return doc;
 	  }
