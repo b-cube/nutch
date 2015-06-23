@@ -70,6 +70,8 @@ public class LinkDb extends NutchTool implements Tool,
     maxAnchorLength = job.getInt("db.max.anchor.length", 100);
     ignoreInternalLinks = job.getBoolean(IGNORE_INTERNAL_LINKS, true);
     ignoreExternalLinks = job.getBoolean(IGNORE_EXTERNAL_LINKS, false);
+    
+    job.setBoolean(LinkDbFilter.URL_FILTERING, false);
 
     if (job.getBoolean(LinkDbFilter.URL_FILTERING, false)) {
       urlFilters = new URLFilters(job);

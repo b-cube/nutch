@@ -143,7 +143,7 @@ public class LinkDbMerger extends Configured implements Tool,
 
     job.setMapperClass(LinkDbFilter.class);
     job.setBoolean(LinkDbFilter.URL_NORMALIZING, normalize);
-    job.setBoolean(LinkDbFilter.URL_FILTERING, filter);
+    job.setBoolean(LinkDbFilter.URL_FILTERING, false);
     job.setReducerClass(LinkDbMerger.class);
 
     FileOutputFormat.setOutputPath(job, newLinkDb);

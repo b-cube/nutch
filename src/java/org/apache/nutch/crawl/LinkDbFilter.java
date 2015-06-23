@@ -58,6 +58,7 @@ public class LinkDbFilter implements Mapper<Text, Inlinks, Text, Inlinks> {
   private Text newKey = new Text();
 
   public void configure(JobConf job) {
+	job.setBoolean(URL_FILTERING, false);
     filter = job.getBoolean(URL_FILTERING, false);
     normalize = job.getBoolean(URL_NORMALIZING, false);
     if (filter) {
