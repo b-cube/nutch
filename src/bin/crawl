@@ -14,7 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # Usage: crawl [-i|--index] [-D "key=value"] <Seed Dir> <Crawl Dir> <Num Rounds>
 #    -i|--index      Indexes crawl results into a configured indexer
 #    -D              A Java property to pass to Nutch calls
@@ -22,8 +22,8 @@
 #    Crawl Dir       Directory where the crawl/link/segments dirs are saved
 #    Num Rounds      The number of rounds to run this crawl for
 #
-# 
-# UNLIKE THE NUTCH ALL-IN-ONE-CRAWL COMMAND THIS SCRIPT DOES THE LINK INVERSION AND 
+#
+# UNLIKE THE NUTCH ALL-IN-ONE-CRAWL COMMAND THIS SCRIPT DOES THE LINK INVERSION AND
 # INDEXING FOR EACH SEGMENT
 
 INDEXFLAG=false
@@ -49,7 +49,7 @@ if [[ $# != 3 ]]; then
     echo "Usage: crawl [-i|--index] [-D \"key=value\"] <Seed Dir> <Crawl Dir> <Num Rounds>"
     echo -e "\t-i|--index\tIndexes crawl results into a configured indexer"
     echo -e "\t-D\t\tA Java property to pass to Nutch calls"
-    echo -e "\tSeed Dir\tDirectory in which to look for a seeds file"
+    echo -e "\tSeed Dir\tDirectory in which to look for a seeds file, pass -noinject as a value to skip the injection."
     echo -e "\tCrawl Dir\tDirectory where the crawl/link/segments dirs are saved"
     echo -e "\tNum Rounds\tThe number of rounds to run this crawl for"
     exit 1
@@ -91,11 +91,11 @@ if [ -f "${bin}"/../*nutch*.job ]; then
     mode=distributed
 fi
 
-# note that some of the options listed here could be set in the 
-# corresponding hadoop site xml param file 
+# note that some of the options listed here could be set in the
+# corresponding hadoop site xml param file
 commonOptions="-D mapred.reduce.tasks=$numTasks -D mapred.child.java.opts=-Xmx1000m -D mapred.reduce.tasks.speculative.execution=false -D mapred.map.tasks.speculative.execution=false -D mapred.compress.map.output=true"
 
- # check that hadoop can be found on the path 
+ # check that hadoop can be found on the path
 if [ $mode = "distributed" ]; then
  if [ $(which hadoop | wc -l ) -eq 0 ]; then
     echo "Can't find Hadoop executable. Add HADOOP_HOME/bin to the path or run in local mode."
@@ -123,8 +123,12 @@ function __bin_nutch {
 
 
 # initial injection
-echo "Injecting seed URLs"
-__bin_nutch inject "$CRAWL_PATH"/crawldb "$SEEDDIR"
+if [ $SEEDDIR = "-noinject" ]; then
+    echo "No new urls will be injected"
+else
+    echo "Injecting seed URLs"
+    __bin_nutch inject "$CRAWL_PATH"/crawldb "$SEEDDIR"
+fi
 
 
 # main loop : rounds of generate - fetch - parse - update
@@ -165,7 +169,7 @@ do
   else
    SEGMENT=`hadoop fs -ls "$CRAWL_PATH"/segments/ | grep segments |  sed -e "s/\//\\n/g" | egrep 20[0-9]+ | sort -n | tail -n 1`
   fi
-  
+
   echo "Operating on segment : $SEGMENT"
 
   # fetching the segment
@@ -174,7 +178,7 @@ do
 
   # parsing the segment
   echo "Parsing : $SEGMENT"
-  # enable the skipping of records for the parsing so that a dodgy document 
+  # enable the skipping of records for the parsing so that a dodgy document
   # so that it does not fail the full task
   skipRecordsOptions="-D mapred.skip.attempts.to.start.skipping=2 -D mapred.skip.map.max.skip.records=1"
   __bin_nutch parse $commonOptions $skipRecordsOptions "$CRAWL_PATH"/segments/$SEGMENT
@@ -183,7 +187,7 @@ do
   echo "CrawlDB update"
   __bin_nutch updatedb $commonOptions "$CRAWL_PATH"/crawldb  "$CRAWL_PATH"/segments/$SEGMENT
 
-# note that the link inversion - indexing routine can be done within the main loop 
+# note that the link inversion - indexing routine can be done within the main loop
 # on a per segment basis
   echo "Link inversion"
   __bin_nutch invertlinks "$CRAWL_PATH"/linkdb "$CRAWL_PATH"/segments/$SEGMENT
@@ -194,13 +198,13 @@ do
   if $INDEXFLAG; then
       echo "Indexing $SEGMENT to index"
       __bin_nutch index $JAVA_PROPERTIES "$CRAWL_PATH"/crawldb -linkdb "$CRAWL_PATH"/linkdb "$CRAWL_PATH"/segments/$SEGMENT
-  
+
       echo "Cleaning up index if possible"
       __bin_nutch clean $JAVA_PROPERTIES "$CRAWL_PATH"/crawldb
   else
       echo "Skipping indexing ..."
   fi
-  
+
   #######################################################
   # The following commands fall into WebGraph territory
   # and should be uncommented based on your requirements
@@ -223,4 +227,3 @@ do
 done
 
 exit 0
-
