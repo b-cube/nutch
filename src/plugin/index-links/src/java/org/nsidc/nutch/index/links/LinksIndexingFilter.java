@@ -16,6 +16,8 @@
  */
 package org.nsidc.nutch.index.links;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 
 import org.apache.hadoop.conf.Configuration;
@@ -46,12 +48,17 @@ public class LinksIndexingFilter implements IndexingFilter {
 
 		if (doc != null) {
 			// Add the outlinks
-			Outlink[] outlinks = parse.getData().getOutlinks();
+			Outlink[] o = parse.getData().getOutlinks();
+			Collection<String> outlinks = new HashSet<String>();
 
-			if (outlinks != null) {
+			if (o != null) {
+				for (Outlink outlink : o) {
+					outlinks.add(outlink.getToUrl());
+				}
 				int count = 0;
-				for (Outlink outlink : outlinks) {
-					doc.add("outlinks", outlink.getToUrl());					
+				for (String outlink : outlinks) {
+					
+					doc.add("outlinks", outlink);					
 					if ((count += 1) >= MAX_OUTLINKS) break;
 				}
 			}

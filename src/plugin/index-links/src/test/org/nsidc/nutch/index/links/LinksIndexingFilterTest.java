@@ -48,6 +48,23 @@ public class LinksIndexingFilterTest extends TestCase {
         assertEquals("http://somesite.org/part/file", doc.getField("outlinks").getValues().get(1).toString());
     }
     
+    public void testDuplicateOutlinks() throws Exception {
+        filter.setConf(conf);
+
+        Outlink[] outlinks = new Outlink[3];
+
+        outlinks[0] = new Outlink("http://www.test.com", "test");
+        outlinks[1] = new Outlink("http://www.test.com", "test");
+        outlinks[2] = new Outlink("http://www.test.com", "test");
+
+        NutchDocument doc = filter.filter(new NutchDocument(), new ParseImpl("text", new ParseData(
+                new ParseStatus(), "title", outlinks, metadata)), new Text(
+                "http://www.example.com/"), new CrawlDatum(), new Inlinks());
+
+        assertEquals("http://www.test.com", doc.getField("outlinks").getValues().get(0).toString());
+        assertEquals(1, doc.getField("outlinks").getValues().size());
+    }
+    
     public void testMaxOutlinks() throws Exception {
         filter.setConf(conf);
 
