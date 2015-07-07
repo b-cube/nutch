@@ -33,16 +33,16 @@
 -^(http|https)://data.noaa.gov/
 
 # do not follow URLs with these words:
--.*(wp-includes|wordpress|cpan|bitbucket|eclipse|magazine|customer|jira|w3|review|gallery|ietf|fedora|debian|windows|blogspot|cite|xmlrpc|svn|apache|sport|bulletin|forum|senate|browse|plugins|module|contact|license|images|about|faq|embassy|foia|library|student|grant|wiki|wlwmanifest|reports|news|abstract|blog|calendar|schedule|publish|contrib|publication|twitter|citation|keywordsearch|gnu|libraries|people|policy|article|presentation|media|video|conference|summit|theme|guide|manual|upload|music|personal|shop|cart|retail|thumbnail|author|health|whoi|tags|event|itemid|zenodo|seminar|courses|syndication|finance|mail|phone)
+-(?:wp-includes|pid|wordpress|cpan|eclipse|magazine|staff|software|customer|jira|w3|review|gallery|ietf|fedora|debian|windows|blogspot|cite|xmlrpc|svn|apache|sport|bulletin|forum|senate|browse|plugins|module|contact|license|images|about|faq|embassy|foia|library|student|grant|wiki|wlwmanifest|reports|news|abstract|blog|calendar|schedule|publish|contrib|publication|twitter|citation|keywordsearch|gnu|libraries|people|policy|article|presentation|media|video|conference|summit|theme|guide|manual|upload|music|personal|shop|cart|retail|thumbnail|author|health|tags|event|itemid|zenodo|seminar|courses|syndication|finance|mail|phone)
 
-+^(http|https)://([a-z0-9]*\.)*nasa.gov/
-+^(http|https)://([a-z0-9]*\.)*usgs.gov/
-+^(http|https)://([a-z0-9]*\.)*noaa.gov/
-+^(http|https)://([a-z0-9]*\.)*data.gov/
-+^(http|https)://([a-z0-9]*\.)*nsf.gov/
-+^(http|https)://([a-z0-9]*\.)*usap.gov/
-+^(http|https)://([a-z0-9]*\.)*epa.gov/
-+^(http|https)://([a-z0-9]*\.)*nrcs.usda.gov/
++^(http|https)://([a-z0-9]*\.)nasa.gov/
++^(http|https)://([a-z0-9]*\.)usgs.gov/
++^(http|https)://([a-z0-9]*\.)noaa.gov/
++^(http|https)://([a-z0-9]*\.)data.gov/
++^(http|https)://([a-z0-9]*\.)nsf.gov/
++^(http|https)://([a-z0-9]*\.)usap.gov/
++^(http|https)://([a-z0-9]*\.)epa.gov/
++^(http|https)://([a-z0-9]*\.)nrcs.usda.gov/
 
 +^(http|https)://.*.edu/
 +^(http|https)://.*.eu/
@@ -50,4 +50,4 @@
 +^(http|https)://.*.ac.uk/
 +^(http|https)://.*.edu.au/
 
-+.*(api|data|service)
++(?:data|service)
