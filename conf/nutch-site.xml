@@ -59,6 +59,12 @@
     <value>false</value>
     <description>Filter urls when updating crawldb NOTE: this is the property that was wrong in the original config file</description>
   </property>
+  
+  <property>
+    <name>parse.filter.urls</name>
+    <value>true</value>
+    <description>Whether the parser will filter URLs (with the configured URL filters).</description>
+  </property>
 
   <property>
     <name>db.update.max.inlinks</name>
@@ -381,12 +387,6 @@
   <value>mimetype-synonyms.txt</value>
   <description>Used to create synonyms for composite mime types for Tika
   </description>
-</property>
-
-<property>
-  <name>parse.filter.urls</name>
-  <value>true</value>
-  <description>Whether the parser will filter URLs (with the configured URL filters).</description>
 </property>
 
 

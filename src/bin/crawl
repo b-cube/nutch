@@ -132,7 +132,7 @@ do
    break
   fi
 
-  # This is dinamically changed because the cluster size may vary in EMR.
+  # This is dinamically changed because the cluster size may vary in EMR, works with Hadoop 1.0.3
   if [ $mode = "local" ]; then
     numSlaves=1
   else
@@ -146,7 +146,7 @@ do
   sizeFetchlist=`expr $numSlaves \* 50000`
   # note that some of the options listed here could be set in the
   # corresponding hadoop site xml param file // -D mapred.child.java.opts=-Xmx2048m for m3xlarge
-  commonOptions="-D mapred.max.map.failures.percent=5 -D mapred.max.reduce.failures.percent=5 -D mapred.reduce.tasks=$numTasks -D mapred.child.java.opts=-Xmx4096m -D mapred.task.timeout=900000 -D mapred.reduce.tasks.speculative.execution=false -D mapred.map.tasks.speculative.execution=false -D mapred.compress.map.output=true"
+  commonOptions="-D mapred.max.map.failures.percent=5 -D mapred.max.reduce.failures.percent=5 -D mapred.reduce.tasks=$numTasks -D mapred.child.java.opts=-Xmx2048m -D mapred.task.timeout=900000 -D mapred.reduce.tasks.speculative.execution=false -D mapred.map.tasks.speculative.execution=false -D mapred.compress.map.output=true"
 
 
   echo `date` ": Iteration $a of $LIMIT"
@@ -207,9 +207,6 @@ do
   if $INDEXFLAG; then
       echo "Indexing $SEGMENT to index"
       __bin_nutch index $JAVA_PROPERTIES "$CRAWL_PATH"/crawldb -linkdb "$CRAWL_PATH"/linkdb "$CRAWL_PATH"/segments/$SEGMENT
-
-      echo "Cleaning up index if possible"
-      __bin_nutch clean $JAVA_PROPERTIES "$CRAWL_PATH"/crawldb
   else
       echo "Skipping indexing ..."
   fi
@@ -221,13 +218,6 @@ do
   else
     hadoop fs -rmr "$CRAWL_PATH"/segments/$SEGMENT
   fi
-
-
-  if [ $mode = "distributed" ]; then
-    echo "Copying CrawlDB to S3"
-    hadoop distcp -overwrite /home/hadoop/crawl s3://bcube-crawl/crawl
-  fi
-
 
 
 
