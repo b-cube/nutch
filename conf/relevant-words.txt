@@ -1,0 +1,16 @@
+data
+wms
+map
+service
+rest
+catalog
+pmh
+repository
+server
+gis
+geo
+earth
+climate
+nasa
+noaa
+usgs

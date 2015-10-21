@@ -60,6 +60,7 @@
      <ant dir="parse-js" target="deploy"/>
      <ant dir="parse-html" target="deploy"/>
      <ant dir="parse-rawcontent" target="deploy"/>
+     <ant dir="parse-bayes" target="deploy"/>
      <ant dir="parse-metatags" target="deploy"/>
      <ant dir="parse-swf" target="deploy"/>
      <ant dir="parse-tika" target="deploy"/>
@@ -111,6 +112,7 @@
      <ant dir="feed" target="test"/>
      <ant dir="parse-html" target="test"/>
      <ant dir="parse-rawcontent" target="test"/>
+     <ant dir="parse-bayes" target="test"/>
      <ant dir="parse-metatags" target="test"/>
      <ant dir="parse-swf" target="test"/>
      <ant dir="parse-tika" target="test"/>
@@ -173,6 +175,7 @@
     <ant dir="parse-js" target="clean"/>
     <ant dir="parse-html" target="clean"/>
     <ant dir="parse-rawcontent" target="clean"/>
+    <ant dir="parse-bayes" target="clean"/>
     <ant dir="parse-metatags" target="clean"/>
     <ant dir="parse-swf" target="clean"/>
     <ant dir="parse-tika" target="clean"/>

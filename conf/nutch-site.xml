@@ -4,6 +4,21 @@
 <!-- Put site-specific property overrides in this file. -->
 
 <configuration>
+    
+    
+   <property>
+    <name>bayes.training.file</name>
+    <value>bayes-training-samples.txt</value>
+    <description></description>
+  </property>
+  
+  <property>
+    <name>bayes.words.file</name>
+    <value>relevant-words.txt</value>
+    <description></description>
+  </property>
+
+
 
   <property>
     <name>http.agent.name</name>
@@ -140,7 +155,7 @@
 
   <property>
     <name>plugin.includes</name>
-    <value>protocol-(http|httpclient)|urlfilter-regex|urlfilter-suffix|parse-(html|tika|rawcontent)|index-(basic|anchor|more|bcubefilter|rawcontent|xmlnamespaces|links)|indexer-solr|urlnormalizer-(pass|regex|basic)</value>
+    <value>protocol-(http|httpclient)|urlfilter-regex|urlfilter-suffix|parse-(html|tika|rawcontent|bayes)|index-(basic|anchor|more|bcubefilter|rawcontent|xmlnamespaces|links)|indexer-solr|urlnormalizer-(pass|regex|basic)</value>
     <description>Regular expression naming plugin directory names to
     include.  Any plugin not matching this expression is excluded.
     In any case you need at least include the nutch-extensionpoints plugin. By
@@ -178,7 +193,7 @@
 
   <property>
     <name>indexingfilter.bcube.allowed.mimetypes</name>
-    <value>application/xml text/xml json opensearch rdf wsdl wadl xml</value>
+    <value>application/xml text/xml opensearch wsdl wadl</value>
     <description>
         Determines the allowed mime types to index. It performs a partial matching, i.e.
         if a document has application/json and a value in this property is json or tion/json then that
