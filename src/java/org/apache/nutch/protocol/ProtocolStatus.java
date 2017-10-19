@@ -99,7 +99,7 @@ public class ProtocolStatus implements Writable {
   private long lastModified;
   private String[] args;
 
-  private static final HashMap<Integer, String> codeToName = new HashMap<Integer, String>();
+  private static final HashMap<Integer, String> codeToName = new HashMap<>();
   static {
     codeToName.put(new Integer(SUCCESS), "success");
     codeToName.put(new Integer(FAILED), "failed");
@@ -225,6 +225,10 @@ public class ProtocolStatus implements Writable {
   public boolean isPermanentFailure() {
     return code == FAILED || code == GONE || code == MOVED || code == NOTFOUND
         || code == ROBOTS_DENIED;
+  }
+
+  public boolean isRedirect() {
+      return code == MOVED || code == TEMP_MOVED;
   }
 
   public String getMessage() {

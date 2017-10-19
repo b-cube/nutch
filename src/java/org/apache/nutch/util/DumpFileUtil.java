@@ -26,11 +26,12 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.invoke.MethodHandles;
 import java.util.Map;
 
 public class DumpFileUtil {
-    private static final Logger LOG = LoggerFactory.getLogger(DumpFileUtil.class
-            .getName());
+	private static final Logger LOG = LoggerFactory
+			.getLogger(MethodHandles.lookup().lookupClass());
 
     private final static String DIR_PATTERN = "%s/%s/%s";
     private final static String FILENAME_PATTERN = "%s_%s.%s";
@@ -80,12 +81,16 @@ public class DumpFileUtil {
             LOG.info("File extension is too long. Truncated to {} characters.", MAX_LENGTH_OF_EXTENSION);
             fileExtension = StringUtils.substring(fileExtension, 0, MAX_LENGTH_OF_EXTENSION);
         }
+	
+	// Added to prevent FileNotFoundException (Invalid Argument) - in *nix environment
+        fileBaseName = fileBaseName.replaceAll("\\?", "");
+        fileExtension = fileExtension.replaceAll("\\?", "");
 
         return String.format(FILENAME_PATTERN, md5, fileBaseName, fileExtension);
     }
     
     public static String createFileNameFromUrl(String basePath, String reverseKey, String urlString, String epochScrapeTime, String fileExtension, boolean makeDir) {
-		String fullDirPath = basePath + File.separator + reverseKey + File.separator + DigestUtils.shaHex(urlString);
+		String fullDirPath = basePath + File.separator + reverseKey + File.separator + DigestUtils.sha1Hex(urlString);
 		
 		if (makeDir) {
 	        try {
@@ -111,15 +116,19 @@ public class DumpFileUtil {
 		// print total stats
 		builder.append("\nTOTAL Stats:\n");
 		builder.append("[\n");
+		int mimetypeCount = 0;
 		for (String mimeType : typeCounts.keySet()) {
 			builder.append("    {\"mimeType\":\"");
 			builder.append(mimeType);
 			builder.append("\",\"count\":\"");
 			builder.append(typeCounts.get(mimeType));
 			builder.append("\"}\n");
+			mimetypeCount += typeCounts.get(mimeType);
 		}
 		builder.append("]\n");
+		builder.append("Total count: " + mimetypeCount + "\n");
 		// filtered types stats
+		mimetypeCount = 0;
 		if (!filteredCounts.isEmpty()) {
 			builder.append("\nFILTERED Stats:\n");
 			builder.append("[\n");
@@ -129,8 +138,10 @@ public class DumpFileUtil {
 				builder.append("\",\"count\":\"");
 				builder.append(filteredCounts.get(mimeType));
 				builder.append("\"}\n");
+				mimetypeCount += filteredCounts.get(mimeType);
 			}
 			builder.append("]\n");
+			builder.append("Total filtered count: " + mimetypeCount + "\n");
 		}
 		return builder.toString();
 	}  

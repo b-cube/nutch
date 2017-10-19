@@ -18,6 +18,7 @@ package org.apache.nutch.segment;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -34,7 +35,10 @@ import org.apache.hadoop.io.MapFile;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.io.MapFile.Writer.Option;
 import org.apache.hadoop.io.SequenceFile.CompressionType;
+import org.apache.hadoop.io.SequenceFile.Metadata;
+import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.FileSplit;
@@ -69,9 +73,7 @@ import org.apache.nutch.util.NutchJob;
 /**
  * This tool takes several segments and merges their data together. Only the
  * latest versions of data is retained.
- * <p>
  * Optionally, you can apply current URLFilters to remove prohibited URL-s.
- * </p>
  * <p>
  * Also, it's possible to slice the resulting segment into chunks of fixed size.
  * </p>
@@ -99,7 +101,6 @@ import org.apache.nutch.util.NutchJob;
  * However, this is NOT the same as de-duplication, which in addition removes
  * identical content found at different URL-s. In other words, running
  * DeleteDuplicates is still necessary.
- * </p>
  * <p>
  * For some types of data (especially ParseText) it's not possible to determine
  * which version is really older. Therefore the tool always uses segment names
@@ -117,14 +118,13 @@ import org.apache.nutch.util.NutchJob;
  * afresh. This tool doesn't use existing indexes in any way, so if you plan to
  * merge segments you don't have to index them prior to merging.
  * 
- * 
  * @author Andrzej Bialecki
  */
 public class SegmentMerger extends Configured implements Tool,
     Mapper<Text, MetaWrapper, Text, MetaWrapper>,
     Reducer<Text, MetaWrapper, Text, MetaWrapper> {
   private static final Logger LOG = LoggerFactory
-      .getLogger(SegmentMerger.class);
+      .getLogger(MethodHandles.lookup().lookupClass());
 
   private static final String SEGMENT_PART_KEY = "part";
   private static final String SEGMENT_SLICE_KEY = "slice";
@@ -160,8 +160,7 @@ public class SegmentMerger extends Configured implements Tool,
         throw new RuntimeException("Cannot identify segment:", e);
       }
 
-      SequenceFile.Reader reader = new SequenceFile.Reader(FileSystem.get(job),
-          fSplit.getPath(), job);
+      SequenceFile.Reader reader = new SequenceFile.Reader(job, SequenceFile.Reader.file(fSplit.getPath()));
 
       final Writable w;
       try {
@@ -175,7 +174,7 @@ public class SegmentMerger extends Configured implements Tool,
           // ignore
         }
       }
-      final SequenceFileRecordReader<Text, Writable> splitReader = new SequenceFileRecordReader<Text, Writable>(
+      final SequenceFileRecordReader<Text, Writable> splitReader = new SequenceFileRecordReader<>(
           job, (FileSplit) split);
 
       try {
@@ -223,7 +222,7 @@ public class SegmentMerger extends Configured implements Tool,
         MapFile.Writer pt_out = null;
         SequenceFile.Writer g_out = null;
         SequenceFile.Writer p_out = null;
-        HashMap<String, Closeable> sliceWriters = new HashMap<String, Closeable>();
+        HashMap<String, Closeable> sliceWriters = new HashMap<>();
         String segmentName = job.get("segment.merger.segmentName");
 
         public void write(Text key, MetaWrapper wrapper) throws IOException {
@@ -284,9 +283,26 @@ public class SegmentMerger extends Configured implements Tool,
             wname = new Path(new Path(new Path(out, segmentName + "-" + slice),
                 dirName), name);
           }
-          res = SequenceFile.createWriter(fs, job, wname, Text.class,
-              CrawlDatum.class,
-              SequenceFileOutputFormat.getOutputCompressionType(job), progress);
+          
+//          Option rKeyClassOpt = MapFile.Writer.keyClass(Text.class);
+//          org.apache.hadoop.io.SequenceFile.Writer.Option rValClassOpt = SequenceFile.Writer.valueClass(CrawlDatum.class);
+//          Option rProgressOpt = (Option) SequenceFile.Writer.progressable(progress);
+//          Option rCompOpt = (Option) SequenceFile.Writer.compression(SequenceFileOutputFormat.getOutputCompressionType(job));
+//          Option rFileOpt = (Option) SequenceFile.Writer.file(wname);
+          
+          //res = SequenceFile.createWriter(job, rFileOpt, rKeyClassOpt,
+           //   rValClassOpt, rCompOpt, rProgressOpt);
+          
+          res = SequenceFile.createWriter(job, SequenceFile.Writer.file(wname),
+              SequenceFile.Writer.keyClass(Text.class),
+              SequenceFile.Writer.valueClass(CrawlDatum.class),
+              SequenceFile.Writer.bufferSize(fs.getConf().getInt("io.file.buffer.size",4096)),
+              SequenceFile.Writer.replication(fs.getDefaultReplication(wname)),
+              SequenceFile.Writer.blockSize(1073741824),
+              SequenceFile.Writer.compression(SequenceFileOutputFormat.getOutputCompressionType(job), new DefaultCodec()),
+              SequenceFile.Writer.progressable(progress),
+              SequenceFile.Writer.metadata(new Metadata())); 
+          
           sliceWriters.put(slice + dirName, res);
           return res;
         }
@@ -314,8 +330,14 @@ public class SegmentMerger extends Configured implements Tool,
           if (clazz.isAssignableFrom(ParseText.class)) {
             compType = CompressionType.RECORD;
           }
-          res = new MapFile.Writer(job, fs, wname.toString(), Text.class,
-              clazz, compType, progress);
+          
+          Option rKeyClassOpt = (Option) MapFile.Writer.keyClass(Text.class);
+          org.apache.hadoop.io.SequenceFile.Writer.Option rValClassOpt = SequenceFile.Writer.valueClass(clazz);
+          org.apache.hadoop.io.SequenceFile.Writer.Option rProgressOpt = SequenceFile.Writer.progressable(progress);
+          org.apache.hadoop.io.SequenceFile.Writer.Option rCompOpt = SequenceFile.Writer.compression(compType);
+          
+          res = new MapFile.Writer(job, wname, rKeyClassOpt,
+              rValClassOpt, rCompOpt, rProgressOpt);
           sliceWriters.put(slice + dirName, res);
           return res;
         }
@@ -420,7 +442,7 @@ public class SegmentMerger extends Configured implements Tool,
     String lastCname = null;
     String lastPDname = null;
     String lastPTname = null;
-    TreeMap<String, ArrayList<CrawlDatum>> linked = new TreeMap<String, ArrayList<CrawlDatum>>();
+    TreeMap<String, ArrayList<CrawlDatum>> linked = new TreeMap<>();
     while (values.hasNext()) {
       MetaWrapper wrapper = values.next();
       Object o = wrapper.get();
@@ -477,7 +499,7 @@ public class SegmentMerger extends Configured implements Tool,
           // collect all LINKED values from the latest segment
           ArrayList<CrawlDatum> segLinked = linked.get(sp.segmentName);
           if (segLinked == null) {
-            segLinked = new ArrayList<CrawlDatum>();
+            segLinked = new ArrayList<>();
             linked.put(sp.segmentName, segLinked);
           }
           segLinked.add(val);
@@ -601,7 +623,6 @@ public class SegmentMerger extends Configured implements Tool,
     job.setBoolean("segment.merger.normalizer", normalize);
     job.setLong("segment.merger.slice", slice);
     job.set("segment.merger.segmentName", segmentName);
-    FileSystem fs = FileSystem.get(getConf());
     // prepare the minimal common set of input dirs
     boolean g = true;
     boolean f = true;
@@ -609,7 +630,16 @@ public class SegmentMerger extends Configured implements Tool,
     boolean c = true;
     boolean pd = true;
     boolean pt = true;
+    
+    // These contain previous values, we use it to track changes in the loop
+    boolean pg = true;
+    boolean pf = true;
+    boolean pp = true;
+    boolean pc = true;
+    boolean ppd = true;
+    boolean ppt = true;
     for (int i = 0; i < segs.length; i++) {
+      FileSystem fs = segs[i].getFileSystem(job);
       if (!fs.exists(segs[i])) {
         if (LOG.isWarnEnabled()) {
           LOG.warn("Input dir " + segs[i] + " doesn't exist, skipping.");
@@ -632,6 +662,13 @@ public class SegmentMerger extends Configured implements Tool,
       p = p && fs.exists(pDir);
       pd = pd && fs.exists(pdDir);
       pt = pt && fs.exists(ptDir);
+      
+      // Input changed?
+      if (g != pg || f != pf || p != pp || c != pc || pd != ppd || pt != ppt) {
+        LOG.info(segs[i] + " changed input dirs");
+      }
+      
+      pg = g; pf = f; pp = p; pc = c; ppd = pd; ppt = pt;
     }
     StringBuffer sb = new StringBuffer();
     if (c)
@@ -711,15 +748,16 @@ public class SegmentMerger extends Configured implements Tool,
       return -1;
     }
     Configuration conf = NutchConfiguration.create();
-    final FileSystem fs = FileSystem.get(conf);
     Path out = new Path(args[0]);
-    ArrayList<Path> segs = new ArrayList<Path>();
+    ArrayList<Path> segs = new ArrayList<>();
     long sliceSize = 0;
     boolean filter = false;
     boolean normalize = false;
     for (int i = 1; i < args.length; i++) {
       if (args[i].equals("-dir")) {
-        FileStatus[] fstats = fs.listStatus(new Path(args[++i]),
+        Path dirPath = new Path(args[++i]);
+        FileSystem fs = dirPath.getFileSystem(conf);
+        FileStatus[] fstats = fs.listStatus(dirPath,
             HadoopFSUtil.getPassDirectoriesFilter(fs));
         Path[] files = HadoopFSUtil.getPaths(fstats);
         for (int j = 0; j < files.length; j++)

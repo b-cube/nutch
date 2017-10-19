@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URI;
 import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.Map;
@@ -73,7 +72,7 @@ public class PluginManifestParser {
    * @return A {@link Map} of all found {@link PluginDescriptor}s.
    */
   public Map<String, PluginDescriptor> parsePluginFolder(String[] pluginFolders) {
-    Map<String, PluginDescriptor> map = new HashMap<String, PluginDescriptor>();
+    Map<String, PluginDescriptor> map = new HashMap<>();
 
     if (pluginFolders == null) {
       throw new IllegalArgumentException("plugin.folders is not defined");

@@ -16,10 +16,12 @@
  */
 package org.apache.nutch.parse.tika;
 
+import java.lang.invoke.MethodHandles;
 import java.io.ByteArrayInputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
@@ -39,13 +41,18 @@ import org.apache.nutch.protocol.Content;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.mime.MediaType;
+import org.apache.tika.parser.html.BoilerpipeContentHandler;
 import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.Parser;
 import org.apache.tika.parser.html.HtmlMapper;
 import org.apache.tika.sax.XHTMLContentHandler;
+import org.apache.tika.sax.Link;
+import org.apache.tika.sax.LinkContentHandler;
+import org.apache.tika.sax.TeeContentHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.DocumentFragment;
+import org.xml.sax.ContentHandler;
 
 /**
  * Wrapper for Tika parsers. Mimics the HTMLParser but using the XHTML
@@ -54,7 +61,8 @@ import org.w3c.dom.DocumentFragment;
 
 public class TikaParser implements org.apache.nutch.parse.Parser {
 
-  public static final Logger LOG = LoggerFactory.getLogger(TikaParser.class);
+  private static final Logger LOG = LoggerFactory
+      .getLogger(MethodHandles.lookup().lookupClass());
 
   private Configuration conf;
   private TikaConfig tikaConfig = null;
@@ -68,11 +76,13 @@ public class TikaParser implements org.apache.nutch.parse.Parser {
   @SuppressWarnings("deprecation")
   public ParseResult getParse(Content content) {
 	String mimeType = content.getContentType();
-	
 	if (tikaSynonyms.isReplacementEnabled()) {
 		mimeType = tikaSynonyms.replace(mimeType);
 		LOG.debug("Using " + mimeType + " instead of " + content.getContentType());
 	} 
+
+    boolean useBoilerpipe = getConf().get("tika.extractor", "none").equals("boilerpipe");
+    String boilerpipeExtractorName = getConf().get("tika.extractor.boilerpipe.algorithm", "ArticleExtractor");
 
     URL base;
     try {
@@ -101,16 +111,32 @@ public class TikaParser implements org.apache.nutch.parse.Parser {
     HTMLDocumentImpl doc = new HTMLDocumentImpl();
     doc.setErrorChecking(false);
     DocumentFragment root = doc.createDocumentFragment();
-    DOMBuilder domhandler = new DOMBuilder(doc, root);
-    domhandler.setUpperCaseElementNames(upperCaseElementNames);
-    domhandler.setDefaultNamespaceURI(XHTMLContentHandler.XHTML);
+
+    ContentHandler domHandler;
+    
+    // Check whether to use Tika's BoilerplateContentHandler
+    if (useBoilerpipe) {
+      BoilerpipeContentHandler bpHandler = new BoilerpipeContentHandler((ContentHandler)new DOMBuilder(doc, root),
+      BoilerpipeExtractorRepository.getExtractor(boilerpipeExtractorName));
+      bpHandler.setIncludeMarkup(true);
+      domHandler = (ContentHandler)bpHandler;
+    } else {
+      DOMBuilder domBuilder = new DOMBuilder(doc, root);
+      domBuilder.setUpperCaseElementNames(upperCaseElementNames);
+      domBuilder.setDefaultNamespaceURI(XHTMLContentHandler.XHTML);
+      domHandler = (ContentHandler)domBuilder;
+    }
+
+    LinkContentHandler linkContentHandler = new LinkContentHandler();
 
     ParseContext context = new ParseContext();
+    TeeContentHandler teeContentHandler = new TeeContentHandler(domHandler, linkContentHandler);
+    
     if (HTMLMapper != null)
       context.set(HtmlMapper.class, HTMLMapper);
     tikamd.set(Metadata.CONTENT_TYPE, mimeType);
     try {
-      parser.parse(new ByteArrayInputStream(raw), domhandler, tikamd, context);
+      parser.parse(new ByteArrayInputStream(raw), (ContentHandler)teeContentHandler, tikamd, context);
     } catch (Exception e) {
       LOG.error("Error parsing " + content.getUrl(), e);
       return new ParseStatus(ParseStatus.FAILED, e.getMessage())
@@ -153,7 +179,12 @@ public class TikaParser implements org.apache.nutch.parse.Parser {
       if (LOG.isTraceEnabled()) {
         LOG.trace("Getting links...");
       }
-      utils.getOutlinks(baseTag != null ? baseTag : base, l, root);
+      
+      // pre-1233 outlink extraction
+      //utils.getOutlinks(baseTag != null ? baseTag : base, l, root);
+      // Get outlinks from Tika
+      List<Link> tikaExtractedOutlinks = linkContentHandler.getLinks();
+      utils.getOutlinks(baseTag != null ? baseTag : base, l, tikaExtractedOutlinks);
       outlinks = l.toArray(new Outlink[l.size()]);
       if (LOG.isTraceEnabled()) {
         LOG.trace("found " + outlinks.length + " outlinks in "

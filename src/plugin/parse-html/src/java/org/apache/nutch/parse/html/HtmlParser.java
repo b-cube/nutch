@@ -17,11 +17,12 @@
 
 package org.apache.nutch.parse.html;
 
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Map;
 import java.net.URL;
 import java.net.MalformedURLException;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.io.*;
 import java.util.regex.*;
 
@@ -30,10 +31,8 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.w3c.dom.*;
 import org.apache.html.dom.*;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.nutch.metadata.Metadata;
 import org.apache.nutch.metadata.Nutch;
 import org.apache.nutch.protocol.Content;
@@ -42,13 +41,14 @@ import org.apache.nutch.parse.*;
 import org.apache.nutch.util.*;
 
 public class HtmlParser implements Parser {
-  public static final Logger LOG = LoggerFactory
-      .getLogger("org.apache.nutch.parse.html");
+  private static final Logger LOG = LoggerFactory
+      .getLogger(MethodHandles.lookup().lookupClass());
 
   // I used 1000 bytes at first, but found that some documents have
   // meta tag well past the first 1000 bytes.
   // (e.g. http://cn.promo.yahoo.com/customcare/music.html)
-  private static final int CHUNK_SIZE = 2000;
+  // NUTCH-2042 (cf. TIKA-357): increased to 8 kB
+  private static final int CHUNK_SIZE = 8192;
 
   // NUTCH-1006 Meta equiv with single quotes not accepted
   private static Pattern metaPattern = Pattern.compile(
@@ -86,13 +86,7 @@ public class HtmlParser implements Parser {
     // to just inflate each byte to a 16-bit value by padding.
     // For instance, the sequence {0x41, 0x82, 0xb7} will be turned into
     // {U+0041, U+0082, U+00B7}.
-    String str = "";
-    try {
-      str = new String(content, 0, length, Charset.forName("ASCII").toString());
-    } catch (UnsupportedEncodingException e) {
-      // code should never come here, but just in case...
-      return null;
-    }
+    String str = new String(content, 0, length, StandardCharsets.US_ASCII);
 
     Matcher metaMatcher = metaPattern.matcher(str);
     String encoding = null;
@@ -188,6 +182,10 @@ public class HtmlParser implements Parser {
 
     // get meta directives
     HTMLMetaProcessor.getMetaTags(metaTags, root, base);
+
+    // populate Nutch metadata with HTML meta directives
+    metadata.addAll(metaTags.getGeneralTags());
+
     if (LOG.isTraceEnabled()) {
       LOG.trace("Meta tags for " + base + ": " + metaTags.toString());
     }

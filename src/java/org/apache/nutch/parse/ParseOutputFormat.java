@@ -21,12 +21,13 @@ package org.apache.nutch.parse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.hadoop.conf.*;
 import org.apache.hadoop.io.*;
+import org.apache.hadoop.io.MapFile.Writer.Option;
 import org.apache.hadoop.io.SequenceFile.CompressionType;
+import org.apache.hadoop.io.SequenceFile.Metadata;
+import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.mapred.*;
-import org.apache.hadoop.util.StringUtils;
 import org.apache.nutch.crawl.CrawlDatum;
 import org.apache.nutch.fetcher.Fetcher;
 import org.apache.nutch.scoring.ScoringFilterException;
@@ -37,6 +38,7 @@ import org.apache.nutch.metadata.Nutch;
 import org.apache.nutch.net.*;
 
 import java.io.*;
+import java.lang.invoke.MethodHandles;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -48,9 +50,9 @@ import org.apache.hadoop.util.Progressable;
 /* Parse content in a segment. */
 public class ParseOutputFormat implements OutputFormat<Text, Parse> {
   private static final Logger LOG = LoggerFactory
-      .getLogger(ParseOutputFormat.class);
-
+      .getLogger(MethodHandles.lookup().lookupClass());
   private URLFilters filters;
+  private URLExemptionFilters exemptionFilters;
   private URLNormalizers normalizers;
   private ScoringFilters scfilters;
 
@@ -94,6 +96,7 @@ public class ParseOutputFormat implements OutputFormat<Text, Parse> {
 
     if (job.getBoolean("parse.filter.urls", true)) {
       filters = new URLFilters(job);
+      exemptionFilters = new URLExemptionFilters(job);
     }
 
     if (job.getBoolean("parse.normalize.urls", true)) {
@@ -102,8 +105,13 @@ public class ParseOutputFormat implements OutputFormat<Text, Parse> {
 
     this.scfilters = new ScoringFilters(job);
     final int interval = job.getInt("db.fetch.interval.default", 2592000);
+    final boolean ignoreInternalLinks = job.getBoolean(
+        "db.ignore.internal.links", false);
     final boolean ignoreExternalLinks = job.getBoolean(
         "db.ignore.external.links", false);
+    final String ignoreExternalLinksMode = job.get(
+        "db.ignore.external.links.mode", "byHost");
+    
     int maxOutlinksPerPage = job.getInt("db.max.outlinks.per.page", 100);
     final boolean isParsing = job.getBoolean("fetcher.parse", true);
     final int maxOutlinks = (maxOutlinksPerPage < 0) ? Integer.MAX_VALUE
@@ -119,21 +127,41 @@ public class ParseOutputFormat implements OutputFormat<Text, Parse> {
     final String[] parseMDtoCrawlDB = job.get("db.parsemeta.to.crawldb", "")
         .split(" *, *");
 
-    final MapFile.Writer textOut = new MapFile.Writer(job, fs, text.toString(),
-        Text.class, ParseText.class, CompressionType.RECORD, progress);
+    // textOut Options
+    Option tKeyClassOpt = (Option) MapFile.Writer.keyClass(Text.class);
+    org.apache.hadoop.io.SequenceFile.Writer.Option tValClassOpt = SequenceFile.Writer.valueClass(ParseText.class);
+    org.apache.hadoop.io.SequenceFile.Writer.Option tProgressOpt = SequenceFile.Writer.progressable(progress);
+    org.apache.hadoop.io.SequenceFile.Writer.Option tCompOpt = SequenceFile.Writer.compression(CompressionType.RECORD);
+    
+    final MapFile.Writer textOut = new MapFile.Writer(job, text,
+        tKeyClassOpt, tValClassOpt, tCompOpt, tProgressOpt);
+    
+    // dataOut Options
+    Option dKeyClassOpt = (Option) MapFile.Writer.keyClass(Text.class);
+    org.apache.hadoop.io.SequenceFile.Writer.Option dValClassOpt = SequenceFile.Writer.valueClass(ParseData.class);
+    org.apache.hadoop.io.SequenceFile.Writer.Option dProgressOpt = SequenceFile.Writer.progressable(progress);
+    org.apache.hadoop.io.SequenceFile.Writer.Option dCompOpt = SequenceFile.Writer.compression(compType);
 
-    final MapFile.Writer dataOut = new MapFile.Writer(job, fs, data.toString(),
-        Text.class, ParseData.class, compType, progress);
-
-    final SequenceFile.Writer crawlOut = SequenceFile.createWriter(fs, job,
-        crawl, Text.class, CrawlDatum.class, compType, progress);
+    final MapFile.Writer dataOut = new MapFile.Writer(job, data,
+        dKeyClassOpt, dValClassOpt, dCompOpt, dProgressOpt);
+    
+    final SequenceFile.Writer crawlOut = SequenceFile.createWriter(job, SequenceFile.Writer.file(crawl),
+        SequenceFile.Writer.keyClass(Text.class),
+        SequenceFile.Writer.valueClass(CrawlDatum.class),
+        SequenceFile.Writer.bufferSize(fs.getConf().getInt("io.file.buffer.size",4096)),
+        SequenceFile.Writer.replication(fs.getDefaultReplication(crawl)),
+        SequenceFile.Writer.blockSize(1073741824),
+        SequenceFile.Writer.compression(compType, new DefaultCodec()),
+        SequenceFile.Writer.progressable(progress),
+        SequenceFile.Writer.metadata(new Metadata())); 
 
     return new RecordWriter<Text, Parse>() {
 
       public void write(Text key, Parse parse) throws IOException {
 
         String fromUrl = key.toString();
-        String fromHost = null;
+        // host or domain name of the source URL
+        String origin = null;
         textOut.append(key, new ParseText(parse.getText()));
 
         ParseData parseData = parse.getData();
@@ -165,15 +193,17 @@ public class ParseOutputFormat implements OutputFormat<Text, Parse> {
         if (parseMDCrawlDatum != null)
           crawlOut.append(key, parseMDCrawlDatum);
 
-        if (ignoreExternalLinks) {
-          // need to determine fromHost (once for all outlinks)
-          try {
-            fromHost = new URL(fromUrl).getHost().toLowerCase();
-          } catch (MalformedURLException e) {
-            fromHost = null;
+        // need to determine origin (once for all outlinks)
+        if (ignoreExternalLinks || ignoreInternalLinks) {
+          URL originURL = new URL(fromUrl.toString());
+          // based on domain?
+          if ("bydomain".equalsIgnoreCase(ignoreExternalLinksMode)) {
+            origin = URLUtil.getDomainName(originURL).toLowerCase();
+          } 
+          // use host 
+          else {
+            origin = originURL.getHost().toLowerCase();
           }
-        } else {
-          fromHost = null;
         }
 
         ParseStatus pstatus = parseData.getStatus();
@@ -181,8 +211,8 @@ public class ParseOutputFormat implements OutputFormat<Text, Parse> {
             && pstatus.getMinorCode() == ParseStatus.SUCCESS_REDIRECT) {
           String newUrl = pstatus.getMessage();
           int refreshTime = Integer.valueOf(pstatus.getArgs()[1]);
-          newUrl = filterNormalize(fromUrl, newUrl, fromHost,
-              ignoreExternalLinks, filters, normalizers,
+          newUrl = filterNormalize(fromUrl, newUrl, origin,
+              ignoreInternalLinks, ignoreExternalLinks, ignoreExternalLinksMode, filters, exemptionFilters, normalizers,
               URLNormalizers.SCOPE_FETCHER);
 
           if (newUrl != null) {
@@ -204,16 +234,16 @@ public class ParseOutputFormat implements OutputFormat<Text, Parse> {
 
         int validCount = 0;
         CrawlDatum adjust = null;
-        List<Entry<Text, CrawlDatum>> targets = new ArrayList<Entry<Text, CrawlDatum>>(
+        List<Entry<Text, CrawlDatum>> targets = new ArrayList<>(
             outlinksToStore);
-        List<Outlink> outlinkList = new ArrayList<Outlink>(outlinksToStore);
+        List<Outlink> outlinkList = new ArrayList<>(outlinksToStore);
         for (int i = 0; i < links.length && validCount < outlinksToStore; i++) {
           String toUrl = links[i].getToUrl();
 
-          // Only normalize and filter if fetcher.parse = false
+          // only normalize and filter if fetcher.parse = false
           if (!isParsing) {
-            toUrl = ParseOutputFormat.filterNormalize(fromUrl, toUrl, fromHost,
-                ignoreExternalLinks, filters, normalizers);
+            toUrl = ParseOutputFormat.filterNormalize(fromUrl, toUrl, origin,
+                ignoreInternalLinks, ignoreExternalLinks, ignoreExternalLinksMode, filters, exemptionFilters, normalizers);
             if (toUrl == null) {
               continue;
             }
@@ -240,7 +270,7 @@ public class ParseOutputFormat implements OutputFormat<Text, Parse> {
 
           targets.add(new SimpleEntry(targetUrl, target));
 
-          // OVerwrite URL in Outlink object with normalized URL (NUTCH-1174)
+          // overwrite URL in Outlink object with normalized URL (NUTCH-1174)
           links[i].setUrl(toUrl);
           outlinkList.add(links[i]);
           validCount++;
@@ -291,30 +321,64 @@ public class ParseOutputFormat implements OutputFormat<Text, Parse> {
   }
 
   public static String filterNormalize(String fromUrl, String toUrl,
-      String fromHost, boolean ignoreExternalLinks, URLFilters filters,
+      String fromHost, boolean ignoreInternalLinks, boolean ignoreExternalLinks,
+      String ignoreExternalLinksMode, URLFilters filters, URLExemptionFilters exemptionFilters,
       URLNormalizers normalizers) {
-    return filterNormalize(fromUrl, toUrl, fromHost, ignoreExternalLinks,
-        filters, normalizers, URLNormalizers.SCOPE_OUTLINK);
+    return filterNormalize(fromUrl, toUrl, fromHost, ignoreInternalLinks, ignoreExternalLinks,
+        ignoreExternalLinksMode, filters, exemptionFilters, normalizers,
+        URLNormalizers.SCOPE_OUTLINK);
   }
 
   public static String filterNormalize(String fromUrl, String toUrl,
-      String fromHost, boolean ignoreExternalLinks, URLFilters filters,
-      URLNormalizers normalizers, String urlNormalizerScope) {
+      String origin, boolean ignoreInternalLinks, boolean ignoreExternalLinks,
+       String ignoreExternalLinksMode, URLFilters filters,
+       URLExemptionFilters exemptionFilters, URLNormalizers normalizers,
+        String urlNormalizerScope) {
     // ignore links to self (or anchors within the page)
     if (fromUrl.equals(toUrl)) {
       return null;
     }
-    if (ignoreExternalLinks) {
-      String toHost;
+    if (ignoreExternalLinks || ignoreInternalLinks) {
+      URL targetURL = null;
       try {
-        toHost = new URL(toUrl).getHost().toLowerCase();
-      } catch (MalformedURLException e) {
-        toHost = null;
-      }
-      if (toHost == null || !toHost.equals(fromHost)) { // external links
+        targetURL = new URL(toUrl);
+      } catch (MalformedURLException e1) {
         return null; // skip it
       }
+      if (ignoreExternalLinks) {
+        if ("bydomain".equalsIgnoreCase(ignoreExternalLinksMode)) {
+          String toDomain = URLUtil.getDomainName(targetURL).toLowerCase();
+          //FIXME: toDomain will never be null, correct?
+          if (toDomain == null || !toDomain.equals(origin)) {
+            return null; // skip it
+          }
+        } else {
+          String toHost = targetURL.getHost().toLowerCase();
+          if (!toHost.equals(origin)) { // external host link
+            if (exemptionFilters == null // check if it is exempted?
+                || !exemptionFilters.isExempted(fromUrl, toUrl)) {
+              return null; ///skip it, This external url is not exempted.
+            }
+          }
+        }
+      }
+      if (ignoreInternalLinks) {
+        if ("bydomain".equalsIgnoreCase(ignoreExternalLinksMode)) {
+          String toDomain = URLUtil.getDomainName(targetURL).toLowerCase();
+          //FIXME: toDomain will never be null, correct?
+          if (toDomain == null || toDomain.equals(origin)) {
+            return null; // skip it
+          }
+        } else {
+          String toHost = targetURL.getHost().toLowerCase();
+          //FIXME: toDomain will never be null, correct?
+          if (toHost == null || toHost.equals(origin)) {
+            return null; // skip it
+          }
+        }
+      }
     }
+
     try {
       if (normalizers != null) {
         toUrl = normalizers.normalize(toUrl, urlNormalizerScope); // normalize

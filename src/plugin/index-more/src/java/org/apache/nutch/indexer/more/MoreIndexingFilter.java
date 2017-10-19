@@ -42,6 +42,7 @@ import org.apache.hadoop.io.Writable;
 
 import java.text.ParseException;
 
+import java.lang.invoke.MethodHandles;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.Date;
@@ -68,8 +69,8 @@ import org.apache.commons.lang.time.DateUtils;
  */
 
 public class MoreIndexingFilter implements IndexingFilter {
-  public static final Logger LOG = LoggerFactory
-      .getLogger(MoreIndexingFilter.class);
+  private static final Logger LOG = LoggerFactory
+      .getLogger(MethodHandles.lookup().lookupClass());
 
   /** Get the MimeTypes resolver instance. */
   private MimeUtil MIME;
@@ -312,10 +313,12 @@ public class MoreIndexingFilter implements IndexingFilter {
   }
 
   private void readConfiguration() throws IOException {
+    LOG.info("Reading content type mappings from file contenttype-mapping.txt");
     BufferedReader reader = new BufferedReader(
         conf.getConfResourceAsReader("contenttype-mapping.txt"));
     String line;
     String parts[];
+    boolean formatWarningShown = false;
 
     mimeMap = new HashMap<String, String>();
 
@@ -328,6 +331,12 @@ public class MoreIndexingFilter implements IndexingFilter {
         if (parts.length > 1) {
           for (int i = 1; i < parts.length; i++) {
             mimeMap.put(parts[i].trim(), parts[0].trim());
+          }
+        } else {
+          LOG.warn("Wrong format of line: {}", line);
+          if (!formatWarningShown) {
+            LOG.warn("Expected format: <target type> <tab> <type1> [<tab> <type2> ...]");
+            formatWarningShown = true;
           }
         }
       }

@@ -19,6 +19,7 @@ package org.apache.nutch.scoring.webgraph;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.invoke.MethodHandles;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -61,7 +62,6 @@ import org.apache.hadoop.mapred.TextOutputFormat;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
-import org.apache.nutch.scoring.webgraph.Loops.LoopSet;
 import org.apache.nutch.util.FSUtils;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
@@ -70,7 +70,8 @@ import org.apache.nutch.util.URLUtil;
 
 public class LinkRank extends Configured implements Tool {
 
-  public static final Logger LOG = LoggerFactory.getLogger(LinkRank.class);
+  private static final Logger LOG = LoggerFactory
+      .getLogger(MethodHandles.lookup().lookupClass());
   private static final String NUM_NODES = "_num_nodes_";
 
   /**
@@ -183,24 +184,17 @@ public class LinkRank extends Configured implements Tool {
    * Runs the inverter job. The inverter job flips outlinks to inlinks to be
    * passed into the analysis job.
    * 
-   * The inverter job takes a link loops database if it exists. It is an
-   * optional componenet of link analysis due to its extreme computational and
-   * space requirements but it can be very useful is weeding out and eliminating
-   * link farms and other spam pages.
-   * 
    * @param nodeDb
    *          The node database to use.
    * @param outlinkDb
    *          The outlink database to use.
-   * @param loopDb
-   *          The loop database to use if it exists.
    * @param output
    *          The output directory.
    * 
    * @throws IOException
    *           If an error occurs while running the inverter job.
    */
-  private void runInverter(Path nodeDb, Path outlinkDb, Path loopDb, Path output)
+  private void runInverter(Path nodeDb, Path outlinkDb, Path output)
       throws IOException {
 
     // configure the inverter
@@ -208,11 +202,6 @@ public class LinkRank extends Configured implements Tool {
     inverter.setJobName("LinkAnalysis Inverter");
     FileInputFormat.addInputPath(inverter, nodeDb);
     FileInputFormat.addInputPath(inverter, outlinkDb);
-
-    // add the loop database if it exists, isn't null
-    if (loopDb != null) {
-      FileInputFormat.addInputPath(inverter, loopDb);
-    }
     FileOutputFormat.setOutputPath(inverter, output);
     inverter.setInputFormat(SequenceFileInputFormat.class);
     inverter.setMapperClass(Inverter.class);
@@ -385,17 +374,15 @@ public class LinkRank extends Configured implements Tool {
 
     /**
      * Inverts outlinks to inlinks, attaches current score for the outlink from
-     * the NodeDb of the WebGraph and removes any outlink that is contained
-     * within the loopset.
+     * the NodeDb of the WebGraph.
      */
     public void reduce(Text key, Iterator<ObjectWritable> values,
         OutputCollector<Text, LinkDatum> output, Reporter reporter)
         throws IOException {
 
       String fromUrl = key.toString();
-      List<LinkDatum> outlinks = new ArrayList<LinkDatum>();
+      List<LinkDatum> outlinks = new ArrayList<>();
       Node node = null;
-      LoopSet loops = null;
 
       // aggregate outlinks, assign other values
       while (values.hasNext()) {
@@ -405,23 +392,7 @@ public class LinkRank extends Configured implements Tool {
           node = (Node) obj;
         } else if (obj instanceof LinkDatum) {
           outlinks.add(WritableUtils.clone((LinkDatum) obj, conf));
-        } else if (obj instanceof LoopSet) {
-          loops = (LoopSet) obj;
         }
-      }
-
-      // Check for the possibility of a LoopSet object without Node and
-      // LinkDatum objects. This can happen
-      // with webgraphs that receive deletes (e.g. link.delete.gone and/or URL
-      // filters or normalizers) but
-      // without an updated Loops database.
-      // See: https://issues.apache.org/jira/browse/NUTCH-1299
-      if (node == null && loops != null) {
-        // Nothing to do
-        LOG.warn("LoopSet without Node object received for "
-            + key.toString()
-            + " . You should either not use Loops as input of the LinkRank program or rerun the Loops program over the WebGraph.");
-        return;
       }
 
       // get the number of outlinks and the current inlink and outlink scores
@@ -433,18 +404,10 @@ public class LinkRank extends Configured implements Tool {
 
       // can't invert if no outlinks
       if (numOutlinks > 0) {
-
-        Set<String> loopSet = (loops != null) ? loops.getLoopSet() : null;
         for (int i = 0; i < outlinks.size(); i++) {
           LinkDatum outlink = outlinks.get(i);
           String toUrl = outlink.getUrl();
 
-          // remove any url that is contained in the loopset
-          if (loopSet != null && loopSet.contains(toUrl)) {
-            LOG.debug(fromUrl + ": Skipping inverting inlink from loop "
-                + toUrl);
-            continue;
-          }
           outlink.setUrl(fromUrl);
           outlink.setScore(outlinkScore);
 
@@ -516,8 +479,8 @@ public class LinkRank extends Configured implements Tool {
         throws IOException {
 
       String url = key.toString();
-      Set<String> domains = new HashSet<String>();
-      Set<String> pages = new HashSet<String>();
+      Set<String> domains = new HashSet<>();
+      Set<String> pages = new HashSet<>();
       Node node = null;
 
       // a page with zero inlinks has a score of rankOne
@@ -612,7 +575,7 @@ public class LinkRank extends Configured implements Tool {
     // upddated into the nodedb
     Path linkRank = new Path(webGraphDb, "linkrank");
     Configuration conf = getConf();
-    FileSystem fs = FileSystem.get(conf);
+    FileSystem fs = linkRank.getFileSystem(conf);
 
     // create the linkrank directory if needed
     if (!fs.exists(linkRank)) {
@@ -623,10 +586,6 @@ public class LinkRank extends Configured implements Tool {
     Path wgOutlinkDb = new Path(webGraphDb, WebGraph.OUTLINK_DIR);
     Path wgNodeDb = new Path(webGraphDb, WebGraph.NODE_DIR);
     Path nodeDb = new Path(linkRank, WebGraph.NODE_DIR);
-    Path loopDb = new Path(webGraphDb, Loops.LOOPS_DIR);
-    if (!fs.exists(loopDb)) {
-      loopDb = null;
-    }
 
     // get the number of total nodes in the webgraph, used for rank one, then
     // initialze all urls with a default score
@@ -654,7 +613,7 @@ public class LinkRank extends Configured implements Tool {
       Path tempNodeDb = new Path(tempRank, WebGraph.NODE_DIR);
 
       // run invert and analysis
-      runInverter(nodeDb, wgOutlinkDb, loopDb, tempInverted);
+      runInverter(nodeDb, wgOutlinkDb, tempInverted);
       runAnalysis(nodeDb, tempInverted, tempNodeDb, i, numIterations,
           rankOneScore);
 

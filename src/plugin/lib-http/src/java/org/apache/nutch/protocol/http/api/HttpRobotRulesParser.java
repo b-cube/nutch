@@ -17,7 +17,9 @@
 
 package org.apache.nutch.protocol.http.api;
 
+import java.lang.invoke.MethodHandles;
 import java.net.URL;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,11 +27,11 @@ import org.slf4j.LoggerFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.nutch.crawl.CrawlDatum;
 import org.apache.nutch.net.protocols.Response;
+import org.apache.nutch.protocol.Content;
 import org.apache.nutch.protocol.Protocol;
 import org.apache.nutch.protocol.RobotRulesParser;
 
 import crawlercommons.robots.BaseRobotRules;
-import crawlercommons.robots.SimpleRobotRules;
 
 /**
  * This class is used for parsing robots for urls belonging to HTTP protocol. It
@@ -38,8 +40,8 @@ import crawlercommons.robots.SimpleRobotRules;
  */
 public class HttpRobotRulesParser extends RobotRulesParser {
 
-  public static final Logger LOG = LoggerFactory
-      .getLogger(HttpRobotRulesParser.class);
+  private static final Logger LOG = LoggerFactory
+      .getLogger(MethodHandles.lookup().lookupClass());
   protected boolean allowForbidden = false;
 
   HttpRobotRulesParser() {
@@ -81,25 +83,52 @@ public class HttpRobotRulesParser extends RobotRulesParser {
    * @param http
    *          The {@link Protocol} object
    * @param url
-   *          URL robots.txt applies to
-   * 
-   * @return {@link BaseRobotRules} holding the rules from robots.txt
+   *          URL
+   * @param robotsTxtContent
+   *          container to store responses when fetching the robots.txt file for
+   *          debugging or archival purposes. Instead of a robots.txt file, it
+   *          may include redirects or an error page (404, etc.). Response
+   *          {@link Content} is appended to the passed list. If null is passed
+   *          nothing is stored.
+   *
+   * @return robotRules A {@link BaseRobotRules} object for the rules
    */
-  public BaseRobotRules getRobotRulesSet(Protocol http, URL url) {
+  @Override
+  public BaseRobotRules getRobotRulesSet(Protocol http, URL url,
+      List<Content> robotsTxtContent) {
+
+    if (LOG.isTraceEnabled() && isWhiteListed(url)) {
+      LOG.trace("Ignoring robots.txt (host is whitelisted) for URL: {}", url);
+    }
 
     String cacheKey = getCacheKey(url);
-    BaseRobotRules robotRules = (SimpleRobotRules) CACHE.get(cacheKey);
+    BaseRobotRules robotRules = CACHE.get(cacheKey);
+
+    if (robotRules != null) {
+      return robotRules; // cached rule
+    } else if (LOG.isTraceEnabled()) {
+      LOG.trace("cache miss " + url);
+    }
 
     boolean cacheRule = true;
+    URL redir = null;
 
-    if (robotRules == null) { // cache miss
-      URL redir = null;
-      if (LOG.isTraceEnabled()) {
-        LOG.trace("cache miss " + url);
-      }
+    if (isWhiteListed(url)) {
+      // check in advance whether a host is whitelisted
+      // (we do not need to fetch robots.txt)
+      robotRules = EMPTY_RULES;
+      LOG.info("Whitelisted host found for: {}", url);
+      LOG.info("Ignoring robots.txt for all URLs from whitelisted host: {}",
+          url.getHost());
+
+    } else {
       try {
-        Response response = ((HttpBase) http).getResponse(new URL(url,
-            "/robots.txt"), new CrawlDatum(), true);
+        URL robotsUrl = new URL(url, "/robots.txt");
+        Response response = ((HttpBase) http).getResponse(robotsUrl,
+            new CrawlDatum(), true);
+        if (robotsTxtContent != null) {
+          addRobotsContent(robotsTxtContent, robotsUrl, response);
+        }
         // try one level of redirection ?
         if (response.getCode() == 301 || response.getCode() == 302) {
           String redirection = response.getHeader("Location");
@@ -117,6 +146,9 @@ public class HttpRobotRulesParser extends RobotRulesParser {
 
             response = ((HttpBase) http).getResponse(redir, new CrawlDatum(),
                 true);
+            if (robotsTxtContent != null) {
+              addRobotsContent(robotsTxtContent, redir, response);
+            }
           }
         }
 
@@ -127,7 +159,7 @@ public class HttpRobotRulesParser extends RobotRulesParser {
         else if ((response.getCode() == 403) && (!allowForbidden))
           robotRules = FORBID_ALL_RULES; // use forbid all
         else if (response.getCode() >= 500) {
-          cacheRule = false;
+          cacheRule = false; // try again later to fetch robots.txt
           robotRules = EMPTY_RULES;
         } else
           robotRules = EMPTY_RULES; // use default rules
@@ -135,18 +167,42 @@ public class HttpRobotRulesParser extends RobotRulesParser {
         if (LOG.isInfoEnabled()) {
           LOG.info("Couldn't get robots.txt for " + url + ": " + t.toString());
         }
-        cacheRule = false;
+        cacheRule = false; // try again later to fetch robots.txt
         robotRules = EMPTY_RULES;
       }
+    }
 
-      if (cacheRule) {
-        CACHE.put(cacheKey, robotRules); // cache rules for host
-        if (redir != null && !redir.getHost().equalsIgnoreCase(url.getHost())) {
-          // cache also for the redirected host
-          CACHE.put(getCacheKey(redir), robotRules);
-        }
+    if (cacheRule) {
+      CACHE.put(cacheKey, robotRules); // cache rules for host
+      if (redir != null && !redir.getHost().equalsIgnoreCase(url.getHost())) {
+        // cache also for the redirected host
+        CACHE.put(getCacheKey(redir), robotRules);
       }
     }
+
     return robotRules;
   }
+
+  /**
+   * Append {@link Content} of robots.txt to {@literal robotsTxtContent}
+   * 
+   * @param robotsTxtContent
+   *          container to store robots.txt response content
+   * @param robotsUrl
+   *          robots.txt URL
+   * @param robotsResponse
+   *          response object to be stored
+   */
+  protected void addRobotsContent(List<Content> robotsTxtContent,
+      URL robotsUrl, Response robotsResponse) {
+    byte[] robotsBytes = robotsResponse.getContent();
+    if (robotsBytes == null)
+      robotsBytes = new byte[0];
+    Content content = new Content(robotsUrl.toString(),
+        robotsUrl.toString(), robotsBytes,
+        robotsResponse.getHeader("Content-Type"), robotsResponse.getHeaders(),
+        getConf());
+    robotsTxtContent.add(content);
+  }
+
 }

@@ -18,6 +18,7 @@
 package org.apache.nutch.crawl;
 
 import java.io.*;
+import java.lang.invoke.MethodHandles;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.net.*;
@@ -31,6 +32,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.conf.*;
 import org.apache.hadoop.mapred.*;
 import org.apache.hadoop.util.*;
+import org.apache.nutch.metadata.Nutch;
 import org.apache.nutch.net.URLFilters;
 import org.apache.nutch.net.URLNormalizers;
 import org.apache.nutch.parse.*;
@@ -45,10 +47,11 @@ import org.apache.nutch.util.TimingUtil;
 public class LinkDb extends NutchTool implements Tool,
     Mapper<Text, ParseData, Text, Inlinks> {
 
-  public static final Logger LOG = LoggerFactory.getLogger(LinkDb.class);
+  private static final Logger LOG = LoggerFactory
+      .getLogger(MethodHandles.lookup().lookupClass());
 
-  public static final String IGNORE_INTERNAL_LINKS = "db.ignore.internal.links";
-  public static final String IGNORE_EXTERNAL_LINKS = "db.ignore.external.links";
+  public static final String IGNORE_INTERNAL_LINKS = "linkdb.ignore.internal.links";
+  public static final String IGNORE_EXTERNAL_LINKS = "linkdb.ignore.external.links";
 
   public static final String CURRENT_NAME = "current";
   public static final String LOCK_NAME = ".locked";
@@ -67,7 +70,7 @@ public class LinkDb extends NutchTool implements Tool,
   }
 
   public void configure(JobConf job) {
-    maxAnchorLength = job.getInt("db.max.anchor.length", 100);
+    maxAnchorLength = job.getInt("linkdb.max.anchor.length", 100);
     ignoreInternalLinks = job.getBoolean(IGNORE_INTERNAL_LINKS, true);
     ignoreExternalLinks = job.getBoolean(IGNORE_EXTERNAL_LINKS, false);
 
@@ -164,7 +167,7 @@ public class LinkDb extends NutchTool implements Tool,
 
   public void invert(Path linkDb, final Path segmentsDir, boolean normalize,
       boolean filter, boolean force) throws IOException {
-    final FileSystem fs = FileSystem.get(getConf());
+    FileSystem fs = segmentsDir.getFileSystem(getConf());
     FileStatus[] files = fs.listStatus(segmentsDir,
         HadoopFSUtil.getPassDirectoriesFilter(fs));
     invert(linkDb, HadoopFSUtil.getPaths(files), normalize, filter, force);
@@ -174,7 +177,7 @@ public class LinkDb extends NutchTool implements Tool,
       boolean filter, boolean force) throws IOException {
     JobConf job = LinkDb.createJob(getConf(), linkDb, normalize, filter);
     Path lock = new Path(linkDb, LOCK_NAME);
-    FileSystem fs = FileSystem.get(getConf());
+    FileSystem fs = linkDb.getFileSystem(getConf());
     LockUtil.createLockFile(fs, lock, force);
     Path currentLinkDb = new Path(linkDb, CURRENT_NAME);
 
@@ -196,6 +199,7 @@ public class LinkDb extends NutchTool implements Tool,
         && job.getBoolean(IGNORE_EXTERNAL_LINKS, false)) {
       LOG.warn("LinkDb: internal and external links are ignored! "
           + "Nothing to do, actually. Exiting.");
+      LockUtil.removeLockFile(fs, lock);
       return;
     }
 
@@ -239,8 +243,8 @@ public class LinkDb extends NutchTool implements Tool,
 
   private static JobConf createJob(Configuration config, Path linkDb,
       boolean normalize, boolean filter) {
-    Path newLinkDb = new Path("linkdb-"
-        + Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
+    Path newLinkDb = new Path(linkDb,
+        Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
 
     JobConf job = new NutchJob(config);
     job.setJobName("linkdb " + linkDb);
@@ -252,7 +256,7 @@ public class LinkDb extends NutchTool implements Tool,
     // if we don't run the mergeJob, perform normalization/filtering now
     if (normalize || filter) {
       try {
-        FileSystem fs = FileSystem.get(config);
+        FileSystem fs = linkDb.getFileSystem(config);
         if (!fs.exists(linkDb)) {
           job.setBoolean(LinkDbFilter.URL_FILTERING, filter);
           job.setBoolean(LinkDbFilter.URL_NORMALIZING, normalize);
@@ -274,7 +278,7 @@ public class LinkDb extends NutchTool implements Tool,
 
   public static void install(JobConf job, Path linkDb) throws IOException {
     Path newLinkDb = FileOutputFormat.getOutputPath(job);
-    FileSystem fs = new JobClient(job).getFs();
+    FileSystem fs = linkDb.getFileSystem(job);
     Path old = new Path(linkDb, "old");
     Path current = new Path(linkDb, CURRENT_NAME);
     if (fs.exists(current)) {
@@ -308,15 +312,16 @@ public class LinkDb extends NutchTool implements Tool,
       System.err.println("\t-noFilter\tdon't apply URLFilters to link URLs");
       return -1;
     }
-    final FileSystem fs = FileSystem.get(getConf());
     Path db = new Path(args[0]);
-    ArrayList<Path> segs = new ArrayList<Path>();
+    ArrayList<Path> segs = new ArrayList<>();
     boolean filter = true;
     boolean normalize = true;
     boolean force = false;
     for (int i = 1; i < args.length; i++) {
       if (args[i].equals("-dir")) {
-        FileStatus[] paths = fs.listStatus(new Path(args[++i]),
+        Path segDir = new Path(args[++i]);
+        FileSystem fs = segDir.getFileSystem(getConf());
+        FileStatus[] paths = fs.listStatus(segDir,
             HadoopFSUtil.getPassDirectoriesFilter(fs));
         segs.addAll(Arrays.asList(HadoopFSUtil.getPaths(paths)));
       } else if (args[i].equalsIgnoreCase("-noNormalize")) {
@@ -341,16 +346,26 @@ public class LinkDb extends NutchTool implements Tool,
    * Used for Nutch REST service
    */
   @Override
-  public Map<String, Object> run(Map<String, String> args, String crawlId) throws Exception {
-//    if (args.size() < 2) {
-//      throw new IllegalArgumentException("Required arguments <linkdb> (-dir <segmentsDir> | <seg1> <seg2> ...) [-force] [-noNormalize] [-noFilter]");
-//    }
-    
-    Map<String, Object> results = new HashMap<String, Object>();
-    String RESULT = "result";
-    String linkdb = crawlId + "/linkdb";
-    Path db = new Path(linkdb);
-    ArrayList<Path> segs = new ArrayList<Path>();
+  public Map<String, Object> run(Map<String, Object> args, String crawlId) throws Exception {
+
+    Map<String, Object> results = new HashMap<>();
+
+    Path linkdb;
+    if(args.containsKey(Nutch.ARG_LINKDB)) {
+      Object path = args.get(Nutch.ARG_LINKDB);
+      if(path instanceof Path) {
+        linkdb = (Path) path;
+      }
+      else {
+        linkdb = new Path(path.toString());
+      }
+    }
+    else {
+      linkdb = new Path(crawlId+"/linkdb");
+    }
+
+
+    ArrayList<Path> segs = new ArrayList<>();
     boolean filter = true;
     boolean normalize = true;
     boolean force = false;
@@ -363,26 +378,50 @@ public class LinkDb extends NutchTool implements Tool,
     if (args.containsKey("force")) {
       force = true;
     }
-    String segment_dir = crawlId+"/segments";
-    File segmentsDir = new File(segment_dir);
-    File[] segmentsList = segmentsDir.listFiles();  
-    Arrays.sort(segmentsList, new Comparator<File>(){
-      @Override
-      public int compare(File f1, File f2) {
+
+    Path segmentsDir;
+    if(args.containsKey(Nutch.ARG_SEGMENTDIR)) {
+      Object segDir = args.get(Nutch.ARG_SEGMENTDIR);
+      if(segDir instanceof Path) {
+        segmentsDir = (Path) segDir;
+      }
+      else {
+        segmentsDir = new Path(segDir.toString());
+      }
+      FileSystem fs = segmentsDir.getFileSystem(getConf());
+      FileStatus[] paths = fs.listStatus(segmentsDir,
+          HadoopFSUtil.getPassDirectoriesFilter(fs));
+      segs.addAll(Arrays.asList(HadoopFSUtil.getPaths(paths)));
+    }
+    else if(args.containsKey(Nutch.ARG_SEGMENT)) {
+      Object segments = args.get(Nutch.ARG_SEGMENT);
+      ArrayList<String> segmentList = new ArrayList<>();
+      if(segments instanceof ArrayList) {
+        segmentList = (ArrayList<String>)segments;
+      }
+      for(String segment: segmentList) {
+        segs.add(new Path(segment));
+      }
+    }
+    else {
+      String segment_dir = crawlId+"/segments";
+      File dir = new File(segment_dir);
+      File[] segmentsList = dir.listFiles();  
+      Arrays.sort(segmentsList, (f1, f2) -> {
         if(f1.lastModified()>f2.lastModified())
           return -1;
         else
           return 0;
-      }      
-    });
-    segs.add(new Path(segmentsList[0].getPath()));
+      });
+      segs.add(new Path(segmentsList[0].getPath()));
+    }
     try {
-      invert(db, segs.toArray(new Path[segs.size()]), normalize, filter, force);
-      results.put(RESULT, Integer.toString(0));
+      invert(linkdb, segs.toArray(new Path[segs.size()]), normalize, filter, force);
+      results.put(Nutch.VAL_RESULT, Integer.toString(0));
       return results;
     } catch (Exception e) {
       LOG.error("LinkDb: " + StringUtils.stringifyException(e));
-      results.put(RESULT, Integer.toString(-1));
+      results.put(Nutch.VAL_RESULT, Integer.toString(-1));
       return results;
     }
   }

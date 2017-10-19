@@ -27,6 +27,8 @@ import org.apache.nutch.util.NutchConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.invoke.MethodHandles;
+
 /**
  * This class implements an adaptive re-fetch algorithm. This works as follows:
  * <ul>
@@ -63,16 +65,16 @@ import org.slf4j.LoggerFactory;
 public class AdaptiveFetchSchedule extends AbstractFetchSchedule {
 
   // Loggg
-  public static final Logger LOG = LoggerFactory
-      .getLogger(AbstractFetchSchedule.class);
+  private static final Logger LOG = LoggerFactory
+      .getLogger(MethodHandles.lookup().lookupClass());
 
   protected float INC_RATE;
 
   protected float DEC_RATE;
 
-  private int MAX_INTERVAL;
+  private float MAX_INTERVAL;
 
-  private int MIN_INTERVAL;
+  private float MIN_INTERVAL;
 
   private boolean SYNC_DELTA;
 
@@ -84,9 +86,9 @@ public class AdaptiveFetchSchedule extends AbstractFetchSchedule {
       return;
     INC_RATE = conf.getFloat("db.fetch.schedule.adaptive.inc_rate", 0.2f);
     DEC_RATE = conf.getFloat("db.fetch.schedule.adaptive.dec_rate", 0.2f);
-    MIN_INTERVAL = conf.getInt("db.fetch.schedule.adaptive.min_interval", 60);
-    MAX_INTERVAL = conf.getInt("db.fetch.schedule.adaptive.max_interval",
-        SECONDS_PER_DAY * 365); // 1 year
+    MIN_INTERVAL = conf.getFloat("db.fetch.schedule.adaptive.min_interval", (float) 60.0);
+    MAX_INTERVAL = conf.getFloat("db.fetch.schedule.adaptive.max_interval",
+        (float) SECONDS_PER_DAY * 365); // 1 year
     SYNC_DELTA = conf.getBoolean("db.fetch.schedule.adaptive.sync_delta", true);
     SYNC_DELTA_RATE = conf.getFloat(
         "db.fetch.schedule.adaptive.sync_delta_rate", 0.2f);
@@ -116,6 +118,7 @@ public class AdaptiveFetchSchedule extends AbstractFetchSchedule {
       switch (state) {
       case FetchSchedule.STATUS_MODIFIED:
         interval *= (1.0f - DEC_RATE);
+        modifiedTime = fetchTime;
         break;
       case FetchSchedule.STATUS_NOTMODIFIED:
         interval *= (1.0f + INC_RATE);

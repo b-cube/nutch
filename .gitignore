@@ -3,6 +3,7 @@ conf/*.xml
 conf/hadoop-env.sh
 conf/slaves
 build/
+bin/
 runtime/
 logs/
 crawl*
@@ -10,3 +11,4 @@ hadoop.log
 .idea/
 .classpath
 .project
+

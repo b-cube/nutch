@@ -31,6 +31,22 @@ public interface SolrConstants {
 
   public static final String PASSWORD = SOLR_PREFIX + "auth.password";
 
+  public static final String COLLECTION = SOLR_PREFIX + "collection";
+
+  public static final String ZOOKEEPER_HOSTS = SOLR_PREFIX + "zookeeper.hosts";
+
+  public static final String ID_FIELD = "id";
+
+  public static final String URL_FIELD = "url";
+
+  public static final String BOOST_FIELD = "boost";
+
+  public static final String TIMESTAMP_FIELD = "tstamp";
+
+  public static final String DIGEST_FIELD = "digest";
+
+
+
   @Deprecated
   public static final String COMMIT_INDEX = SOLR_PREFIX + "commit.index";
 

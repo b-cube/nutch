@@ -17,6 +17,7 @@
 
 package org.apache.nutch.parse;
 
+import java.lang.invoke.MethodHandles;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,7 +50,7 @@ import org.apache.oro.text.regex.Perl5Matcher;
  */
 public class OutlinkExtractor {
   private static final Logger LOG = LoggerFactory
-      .getLogger(OutlinkExtractor.class);
+      .getLogger(MethodHandles.lookup().lookupClass());
 
   /**
    * Regex pattern to get URLs within a plain text.
@@ -89,7 +90,7 @@ public class OutlinkExtractor {
   public static Outlink[] getOutlinks(final String plainText, String anchor,
       Configuration conf) {
     long start = System.currentTimeMillis();
-    final List<Outlink> outlinks = new ArrayList<Outlink>();
+    final List<Outlink> outlinks = new ArrayList<>();
 
     try {
       final PatternCompiler cp = new Perl5Compiler();
@@ -140,115 +141,6 @@ public class OutlinkExtractor {
     }
 
     return retval;
-  }
-
-  /**
-   * Extracts outlinks from a plain text. <br />
-   * This Method takes the Jakarta Regexp API.
-   * 
-   * @param plainText
-   * 
-   * @return Array of <code>Outlink</code> s within found in plainText
-   * @deprecated only for tests
-   */
-  @Deprecated
-  private Outlink[] getOutlinksJakartaRegexpImpl(final String plainText) {
-
-    throw new UnsupportedOperationException(
-        "Implementation commented out. Please uncomment to use it.");
-
-    // final List outlinks = new ArrayList();
-    // String url;
-    // Outlink link;
-    //
-    // RE re = new RE(URL_PATTERN);
-    //
-    // int pos = 0;
-    //
-    // while (re.match(plainText, pos)) {
-    //
-    // url = re.getParen(0);
-    //
-    // if (LOG.isTraceEnabled()) {
-    // LOG.trace("Extracted url: " + url);
-    // }
-    //
-    // try {
-    //
-    // link = new Outlink(url, null);
-    // outlinks.add(link);
-    //
-    // } catch (MalformedURLException ex) {
-    // // if it is a malformed URL we just throw it away and continue with
-    // // extraction.
-    // if (LOG.isErrorEnabled()) { LOG.error("getOutlinks", ex); }
-    // }
-    //
-    // pos = re.getParenEnd(0);
-    // }
-    //
-    // final Outlink[] retval;
-    //
-    // if (pos > 0) {
-    // retval = (Outlink[]) outlinks.toArray(new Outlink[0]);
-    // } else {
-    // retval = new Outlink[0];
-    // }
-    //
-    // return retval;
-
-  }
-
-  /**
-   * Extracts outlinks from a plain text. </p> This Method takes the JDK5 Regexp
-   * API.
-   * 
-   * @param plainText
-   * 
-   * @return Array of <code>Outlink</code> s within found in plainText
-   * @deprecated only for tests
-   */
-  @Deprecated
-  private Outlink[] getOutlinksJDK5Impl(final String plainText) {
-
-    throw new UnsupportedOperationException(
-        "Implementation commented out. Please uncomment to use it.");
-
-    // final List outlinks = new ArrayList();
-    // String url;
-    // Outlink link;
-    //
-    // final Pattern urlPattern = Pattern.compile(URL_PATTERN);
-    // final RE re = new RE(urlPattern);
-    //
-    // int pos = 0;
-    //
-    // while (re.match(plainText, pos)) {
-    //
-    // url = re.getParen(0);
-    //
-    // try {
-    //
-    // link = new Outlink(url, null);
-    // outlinks.add(link);
-    // } catch (MalformedURLException ex) {
-    // // if it is a malformed URL we just throw it away and continue with
-    // // extraction.
-    // if (LOG.isErrorEnabled()) { LOG.error("getOutlinks", ex); }
-    // }
-    //
-    // pos = re.getParenEnd(0);
-    // }
-    //
-    // final Outlink[] retval;
-    //
-    // if (pos > 0) {
-    // retval = (Outlink[]) outlinks.toArray(new Outlink[0]);
-    // } else {
-    // retval = new Outlink[0];
-    // }
-    //
-    // return retval;
   }
 
 }

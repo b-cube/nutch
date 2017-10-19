@@ -21,6 +21,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.nutch.crawl.CrawlDatum;
 import org.apache.nutch.crawl.SignatureFactory;
+import org.apache.nutch.segment.SegmentChecker;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.io.*;
 import org.apache.hadoop.mapred.*;
 import org.apache.hadoop.util.*;
@@ -35,6 +37,7 @@ import org.apache.nutch.util.*;
 import org.apache.hadoop.fs.Path;
 
 import java.io.*;
+import java.lang.invoke.MethodHandles;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.Map.Entry;
@@ -44,7 +47,8 @@ public class ParseSegment extends NutchTool implements Tool,
     Mapper<WritableComparable<?>, Content, Text, ParseImpl>,
     Reducer<Text, Writable, Text, Writable> {
 
-  public static final Logger LOG = LoggerFactory.getLogger(ParseSegment.class);
+  private static final Logger LOG = LoggerFactory
+      .getLogger(MethodHandles.lookup().lookupClass());
 
   public static final String SKIP_TRUNCATED = "parser.skip.truncated";
 
@@ -82,11 +86,14 @@ public class ParseSegment extends NutchTool implements Tool,
       key = newKey;
     }
 
-    int status = Integer.parseInt(content.getMetadata().get(
-        Nutch.FETCH_STATUS_KEY));
-    if (status != CrawlDatum.STATUS_FETCH_SUCCESS) {
+    String fetchStatus = content.getMetadata().get(Nutch.FETCH_STATUS_KEY);
+    if (fetchStatus == null) {
+      // no fetch status, skip document
+      LOG.debug("Skipping {} as content has no fetch status", key);
+      return;
+    } else if (Integer.parseInt(fetchStatus) != CrawlDatum.STATUS_FETCH_SUCCESS) {
       // content not fetched successfully, skip document
-      LOG.debug("Skipping " + key + " as content is not fetched successfully");
+      LOG.debug("Skipping {} as content is not fetched successfully", key);
       return;
     }
 
@@ -94,6 +101,7 @@ public class ParseSegment extends NutchTool implements Tool,
       return;
     }
 
+    long start = System.currentTimeMillis();
     ParseResult parseResult = null;
     try {
       if (parseUtil == null)
@@ -109,8 +117,6 @@ public class ParseSegment extends NutchTool implements Tool,
       Text url = entry.getKey();
       Parse parse = entry.getValue();
       ParseStatus parseStatus = parse.getData().getStatus();
-
-      long start = System.currentTimeMillis();
 
       reporter.incrCounter("ParserStatus",
           ParseStatus.majorCodes[parseStatus.getMajorCode()], 1);
@@ -197,6 +203,11 @@ public class ParseSegment extends NutchTool implements Tool,
   }
 
   public void parse(Path segment) throws IOException {
+    if (SegmentChecker.isParsed(segment, segment.getFileSystem(getConf()))) {
+      LOG.warn("Segment: " + segment
+          + " already parsed!! Skipped parsing this segment!!"); // NUTCH-1854
+      return;
+    }
 
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     long start = System.currentTimeMillis();
@@ -261,33 +272,40 @@ public class ParseSegment extends NutchTool implements Tool,
   /*
    * Used for Nutch REST service
    */
-  public Map<String, Object> run(Map<String, String> args, String crawlId) throws Exception {
+  public Map<String, Object> run(Map<String, Object> args, String crawlId) throws Exception {
 
-    Map<String, Object> results = new HashMap<String, Object>();
-    String RESULT = "result";
+    Map<String, Object> results = new HashMap<>();
+    Path segment;
+    if(args.containsKey(Nutch.ARG_SEGMENT)) {
+    	Object seg = args.get(Nutch.ARG_SEGMENT);
+    	if(seg instanceof Path) {
+    		segment = (Path) seg;
+    	}
+    	else {
+    		segment = new Path(seg.toString());
+    	}
+    }
+    else {
+    	String segment_dir = crawlId+"/segments";
+        File segmentsDir = new File(segment_dir);
+        File[] segmentsList = segmentsDir.listFiles();  
+        Arrays.sort(segmentsList, (f1, f2) -> {
+          if(f1.lastModified()>f2.lastModified())
+            return -1;
+          else
+            return 0;
+        });
+        segment = new Path(segmentsList[0].getPath());
+    }
+    
     if (args.containsKey("nofilter")) {
       getConf().setBoolean("parse.filter.urls", false);
     }
     if (args.containsKey("nonormalize")) {
       getConf().setBoolean("parse.normalize.urls", false);
     }
-
-    String segment_dir = crawlId+"/segments";
-    File segmentsDir = new File(segment_dir);
-    File[] segmentsList = segmentsDir.listFiles();  
-    Arrays.sort(segmentsList, new Comparator<File>(){
-      @Override
-      public int compare(File f1, File f2) {
-        if(f1.lastModified()>f2.lastModified())
-          return -1;
-        else
-          return 0;
-      }      
-    });
-    
-    Path segment = new Path(segmentsList[0].getPath());
     parse(segment);
-    results.put(RESULT, Integer.toString(0));
+    results.put(Nutch.VAL_RESULT, Integer.toString(0));
     return results;
   }
 }

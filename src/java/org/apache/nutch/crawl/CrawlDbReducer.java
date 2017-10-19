@@ -17,6 +17,7 @@
 
 package org.apache.nutch.crawl;
 
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -37,8 +38,8 @@ import org.apache.nutch.scoring.ScoringFilters;
 /** Merge new page entries with existing entries. */
 public class CrawlDbReducer implements
     Reducer<Text, CrawlDatum, Text, CrawlDatum> {
-  public static final Logger LOG = LoggerFactory
-      .getLogger(CrawlDbReducer.class);
+  private static final Logger LOG = LoggerFactory
+      .getLogger(MethodHandles.lookup().lookupClass());
 
   private int retryMax;
   private CrawlDatum result = new CrawlDatum();
@@ -137,7 +138,7 @@ public class CrawlDbReducer implements
     // copy the content of the queue into a List
     // in reversed order
     int numLinks = linked.size();
-    List<CrawlDatum> linkList = new ArrayList<CrawlDatum>(numLinks);
+    List<CrawlDatum> linkList = new ArrayList<>(numLinks);
     for (int i = numLinks - 1; i >= 0; i--) {
       linkList.add(linked.pop());
     }
@@ -209,6 +210,13 @@ public class CrawlDbReducer implements
     case CrawlDatum.STATUS_FETCH_REDIR_TEMP: // successful fetch, redirected
     case CrawlDatum.STATUS_FETCH_REDIR_PERM:
     case CrawlDatum.STATUS_FETCH_NOTMODIFIED: // successful fetch, notmodified
+      // https://issues.apache.org/jira/browse/NUTCH-1656
+      if (metaFromParse != null) {
+        for (Entry<Writable, Writable> e : metaFromParse.entrySet()) {
+          result.getMetaData().put(e.getKey(), e.getValue());
+        }
+      }
+      
       // determine the modification status
       int modified = FetchSchedule.STATUS_UNKNOWN;
       if (fetch.getStatus() == CrawlDatum.STATUS_FETCH_NOTMODIFIED) {
@@ -258,13 +266,6 @@ public class CrawlDbReducer implements
             result.setStatus(CrawlDatum.STATUS_DB_UNFETCHED);
         }
         result.setSignature(signature);
-      }
-
-      // https://issues.apache.org/jira/browse/NUTCH-1656
-      if (metaFromParse != null) {
-        for (Entry<Writable, Writable> e : metaFromParse.entrySet()) {
-          result.getMetaData().put(e.getKey(), e.getValue());
-        }
       }
 
       // if fetchInterval is larger than the system-wide maximum, trigger

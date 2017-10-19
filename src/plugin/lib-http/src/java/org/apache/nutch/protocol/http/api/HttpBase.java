@@ -17,21 +17,26 @@
 package org.apache.nutch.protocol.http.api;
 
 // JDK imports
+import java.lang.invoke.MethodHandles;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+
 // Logging imports
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 // Nutch imports
 import org.apache.nutch.crawl.CrawlDatum;
+import org.apache.nutch.metadata.Nutch;
 import org.apache.nutch.net.protocols.Response;
 import org.apache.nutch.protocol.Content;
 import org.apache.nutch.protocol.Protocol;
@@ -54,6 +59,8 @@ public abstract class HttpBase implements Protocol {
 
   public static final Text RESPONSE_TIME = new Text("_rs_");
 
+  public static final Text COOKIE = new Text("Cookie");
+  
   public static final int BUFFER_SIZE = 8 * 1024;
 
   private static final byte[] EMPTY_CONTENT = new byte[0];
@@ -67,6 +74,9 @@ public abstract class HttpBase implements Protocol {
 
   /** The proxy port. */
   protected int proxyPort = 8080;
+  
+  /** The proxy exception list. */
+  protected HashMap proxyException = new HashMap(); 
 
   /** Indicates if a proxy is used */
   protected boolean useProxy = false;
@@ -84,14 +94,18 @@ public abstract class HttpBase implements Protocol {
   /** The "Accept-Language" request header value. */
   protected String acceptLanguage = "en-us,en-gb,en;q=0.7,*;q=0.3";
 
+  /** The "Accept-Language" request header value. */
+  protected String acceptCharset = "utf-8,iso-8859-1;q=0.7,*;q=0.7";
+
   /** The "Accept" request header value. */
   protected String accept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
 
   /** The default logger */
-  private final static Logger LOGGER = LoggerFactory.getLogger(HttpBase.class);
+  private static final Logger LOG = LoggerFactory
+      .getLogger(MethodHandles.lookup().lookupClass());
 
   /** The specified logger */
-  private Logger logger = LOGGER;
+  private Logger logger = LOG;
 
   /** The nutch configuration */
   private Configuration conf = null;
@@ -115,7 +129,10 @@ public abstract class HttpBase implements Protocol {
   protected Set<String> tlsPreferredCipherSuites;
   
   /** Configuration directive for If-Modified-Since HTTP header */
-  public boolean enableIfModifiedsinceHeader = true;
+  protected boolean enableIfModifiedsinceHeader = true;
+  
+  /** Controls whether or not to set Cookie HTTP header based on CrawlDatum metadata */
+  protected boolean enableCookieHeader = true;
 
   /** Creates a new instance of HttpBase */
   public HttpBase() {
@@ -135,18 +152,22 @@ public abstract class HttpBase implements Protocol {
     this.conf = conf;
     this.proxyHost = conf.get("http.proxy.host");
     this.proxyPort = conf.getInt("http.proxy.port", 8080);
+    this.proxyException = arrayToMap(conf.getStrings("http.proxy.exception.list"));
     this.useProxy = (proxyHost != null && proxyHost.length() > 0);
     this.timeout = conf.getInt("http.timeout", 10000);
     this.maxContent = conf.getInt("http.content.limit", 64 * 1024);
     this.userAgent = getAgentString(conf.get("http.agent.name"),
         conf.get("http.agent.version"), conf.get("http.agent.description"),
         conf.get("http.agent.url"), conf.get("http.agent.email"));
-    this.acceptLanguage = conf.get("http.accept.language", acceptLanguage);
-    this.accept = conf.get("http.accept", accept);
+    this.acceptLanguage = conf.get("http.accept.language", acceptLanguage)
+        .trim();
+    this.acceptCharset = conf.get("http.accept.charset", accept).trim();
+    this.accept = conf.get("http.accept", accept).trim();
     // backward-compatible default setting
     this.useHttp11 = conf.getBoolean("http.useHttp11", false);
     this.responseTime = conf.getBoolean("http.store.responsetime", true);
     this.enableIfModifiedsinceHeader = conf.getBoolean("http.enable.if.modified.since.header", true);
+    this.enableCookieHeader = conf.getBoolean("http.enable.cookie.header", true);
     this.robots.setConf(conf);
 
     // NUTCH-1941: read list of alternating agent names
@@ -260,6 +281,9 @@ public abstract class HttpBase implements Protocol {
       }
 
       int code = response.getCode();
+      datum.getMetaData().put(Nutch.PROTOCOL_STATUS_CODE_KEY,
+        new Text(Integer.toString(code)));
+
       byte[] content = response.getContent();
       Content c = new Content(u.toString(), u.toString(),
           (content == null ? EMPTY_CONTENT : content),
@@ -340,7 +364,12 @@ public abstract class HttpBase implements Protocol {
     return proxyPort;
   }
 
-  public boolean useProxy() {
+  public boolean useProxy(URL url) {
+    if (!useProxy){
+      return false;
+    } else if (proxyException.get(url.getHost())!=null){
+      return false;
+    }
     return useProxy;
   }
 
@@ -351,6 +380,10 @@ public abstract class HttpBase implements Protocol {
   public boolean isIfModifiedSinceEnabled() {
     return enableIfModifiedsinceHeader;
   }
+  
+  public boolean isCookieEnabled() {
+    return enableCookieHeader;
+  }
 
   public int getMaxContent() {
     return maxContent;
@@ -358,7 +391,7 @@ public abstract class HttpBase implements Protocol {
 
   public String getUserAgent() {
     if (userAgentNames!=null) {
-      return userAgentNames.get(ThreadLocalRandom.current().nextInt(userAgentNames.size()-1));
+      return userAgentNames.get(ThreadLocalRandom.current().nextInt(userAgentNames.size()));
     }
     return userAgent;
   }
@@ -370,6 +403,10 @@ public abstract class HttpBase implements Protocol {
    */
   public String getAcceptLanguage() {
     return acceptLanguage;
+  }
+
+  public String getAcceptCharset() {
+    return acceptCharset;
   }
 
   public String getAccept() {
@@ -393,8 +430,8 @@ public abstract class HttpBase implements Protocol {
 
     if ((agentName == null) || (agentName.trim().length() == 0)) {
       // TODO : NUTCH-258
-      if (LOGGER.isErrorEnabled()) {
-        LOGGER.error("No User-Agent string set (http.agent.name)!");
+      if (LOG.isErrorEnabled()) {
+        LOG.error("No User-Agent string set (http.agent.name)!");
       }
     }
 
@@ -434,19 +471,21 @@ public abstract class HttpBase implements Protocol {
     if (logger.isInfoEnabled()) {
       logger.info("http.proxy.host = " + proxyHost);
       logger.info("http.proxy.port = " + proxyPort);
+      logger.info("http.proxy.exception.list = " + useProxy);
       logger.info("http.timeout = " + timeout);
       logger.info("http.content.limit = " + maxContent);
       logger.info("http.agent = " + userAgent);
       logger.info("http.accept.language = " + acceptLanguage);
       logger.info("http.accept = " + accept);
+      logger.info("http.enable.cookie.header = " + isCookieEnabled());
     }
   }
 
   public byte[] processGzipEncoded(byte[] compressed, URL url)
       throws IOException {
 
-    if (LOGGER.isTraceEnabled()) {
-      LOGGER.trace("uncompressing....");
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("uncompressing....");
     }
 
     // content can be empty (i.e. redirection) in which case
@@ -464,8 +503,8 @@ public abstract class HttpBase implements Protocol {
     if (content == null)
       throw new IOException("unzipBestEffort returned null");
 
-    if (LOGGER.isTraceEnabled()) {
-      LOGGER.trace("fetched " + compressed.length
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("fetched " + compressed.length
           + " bytes of compressed content (expanded to " + content.length
           + " bytes) from " + url);
     }
@@ -480,18 +519,22 @@ public abstract class HttpBase implements Protocol {
     if (compressed.length == 0)
       return compressed;
 
-    if (LOGGER.isTraceEnabled()) {
-      LOGGER.trace("inflating....");
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("inflating....");
     }
 
-    byte[] content = DeflateUtils
-        .inflateBestEffort(compressed, getMaxContent());
+    byte[] content;
+    if (getMaxContent() >= 0) {
+      content = DeflateUtils.inflateBestEffort(compressed, getMaxContent());
+    } else {
+      content = DeflateUtils.inflateBestEffort(compressed);
+    }
 
     if (content == null)
       throw new IOException("inflateBestEffort returned null");
 
-    if (LOGGER.isTraceEnabled()) {
-      LOGGER.trace("fetched " + compressed.length
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("fetched " + compressed.length
           + " bytes of compressed content (expanded to " + content.length
           + " bytes) from " + url);
     }
@@ -499,7 +542,6 @@ public abstract class HttpBase implements Protocol {
   }
 
   protected static void main(HttpBase http, String[] args) throws Exception {
-    boolean verbose = false;
     String url = null;
 
     String usage = "Usage: Http [-verbose] [-timeout N] url";
@@ -513,7 +555,6 @@ public abstract class HttpBase implements Protocol {
       if (args[i].equals("-timeout")) { // found -timeout option
         http.timeout = Integer.parseInt(args[++i]) * 1000;
       } else if (args[i].equals("-verbose")) { // found -verbose option
-        verbose = true;
       } else if (i != args.length - 1) {
         System.err.println(usage);
         System.exit(-1);
@@ -521,10 +562,6 @@ public abstract class HttpBase implements Protocol {
         // root is required parameter
         url = args[i];
     }
-
-    // if (verbose) {
-    // LOGGER.setLevel(Level.FINE);
-    // }
 
     ProtocolOutput out = http
         .getProtocolOutput(new Text(url), new CrawlDatum());
@@ -544,7 +581,27 @@ public abstract class HttpBase implements Protocol {
   protected abstract Response getResponse(URL url, CrawlDatum datum,
       boolean followRedirects) throws ProtocolException, IOException;
 
-  public BaseRobotRules getRobotRules(Text url, CrawlDatum datum) {
-    return robots.getRobotRulesSet(this, url);
+  @Override
+  public BaseRobotRules getRobotRules(Text url, CrawlDatum datum,
+      List<Content> robotsTxtContent) {
+    return robots.getRobotRulesSet(this, url, robotsTxtContent);
+  }
+  
+  /**
+   * Transforming a String[] into a HashMap for faster searching
+   * @param input String[]
+   * @return a new HashMap
+   */
+  private HashMap<String, String> arrayToMap(String[] input) {
+    if (input == null || input.length == 0) {
+      return new HashMap<String, String>();
+    }
+    HashMap<String, String> hm = new HashMap<>();
+    for (int i = 0; i < input.length; i++) {
+      if (!"".equals(input[i].trim())) {
+        hm.put(input[i], input[i]);
+      }
+    }
+    return hm;
   }
 }

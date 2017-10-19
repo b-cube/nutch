@@ -16,6 +16,7 @@
  */
 package org.apache.nutch.urlfilter.domain;
 
+import java.lang.invoke.MethodHandles;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -63,12 +64,12 @@ import org.apache.nutch.util.domain.DomainSuffix;
  * overridden using the:
  * 
  * <ul>
- * <ol>
+ * <li>
  * property "urlfilter.domain.file" in ./conf/nutch-*.xml, and
- * </ol>
- * <ol>
+ * </li>
+ * <li>
  * attribute "file" in plugin.xml of this plugin
- * </ol>
+ * </li>
  * </ul>
  * 
  * the attribute "file" has higher precedence if defined.
@@ -76,7 +77,7 @@ import org.apache.nutch.util.domain.DomainSuffix;
 public class DomainURLFilter implements URLFilter {
 
   private static final Logger LOG = LoggerFactory
-      .getLogger(DomainURLFilter.class);
+      .getLogger(MethodHandles.lookup().lookupClass());
 
   // read in attribute "file" of this plugin.
   private static String attributeFile = null;
@@ -109,8 +110,6 @@ public class DomainURLFilter implements URLFilter {
    * 
    * @param domainFile
    *          The domain file, overrides domain-urlfilter.text default.
-   * 
-   * @throws IOException
    */
   public DomainURLFilter(String domainFile) {
     this.domainFile = domainFile;
@@ -180,9 +179,10 @@ public class DomainURLFilter implements URLFilter {
   }
 
   public String filter(String url) {
-
+    // https://issues.apache.org/jira/browse/NUTCH-2189
+    if (domainSet.size() == 0) return url;
+    
     try {
-
       // match for suffix, domain, and host in that order. more general will
       // override more specific
       String domain = URLUtil.getDomainName(url).toLowerCase().trim();

@@ -17,6 +17,7 @@
 
 package org.apache.nutch.parse.html;
 
+import java.lang.invoke.MethodHandles;
 import java.nio.charset.Charset;
 
 import org.apache.hadoop.conf.Configuration;
@@ -33,15 +34,15 @@ import org.slf4j.LoggerFactory;
 
 public class TestHtmlParser {
 
-  public static final Logger LOG = LoggerFactory
-      .getLogger(TestHtmlParser.class);
+  private static final Logger LOG = LoggerFactory
+      .getLogger(MethodHandles.lookup().lookupClass());
 
   private static final String encodingTestKeywords = "français, español, русский язык, čeština, ελληνικά";
   private static final String encodingTestBody = "<ul>\n  <li>français\n  <li>español\n  <li>русский язык\n  <li>čeština\n  <li>ελληνικά\n</ul>";
   private static final String encodingTestContent = "<title>"
       + encodingTestKeywords + "</title>\n"
-      + "<meta name=\"keywords\" content=\"" + encodingTestKeywords
-      + "</meta>\n" + "</head>\n<body>" + encodingTestBody + "</body>\n</html>";
+      + "<meta name=\"keywords\" content=\"" + encodingTestKeywords + "\" />\n"
+      + "</head>\n<body>" + encodingTestBody + "</body>\n</html>";
 
   private static String[][] encodingTestPages = {
       {
@@ -113,10 +114,9 @@ public class TestHtmlParser {
         Assert.assertTrue(keyword + " not found in text (" + name + ")",
             text.contains(keyword));
       }
-      if (keywords != null) {
-        Assert.assertEquals("Keywords not extracted properly (" + name + ")",
-            encodingTestKeywords, keywords);
-      }
+      Assert.assertNotNull("No keywords extracted", keywords);
+      Assert.assertEquals("Keywords not extracted properly (" + name + ")",
+          encodingTestKeywords, keywords);
     }
   }
 

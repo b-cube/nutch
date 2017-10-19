@@ -17,11 +17,11 @@
 
 package org.apache.nutch.util.domain;
 
+import java.io.File;
 import java.io.IOException;
+import java.lang.invoke.MethodHandles;
 import java.net.URL;
 import java.text.SimpleDateFormat;
-import java.util.Iterator;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -49,7 +49,7 @@ import org.apache.nutch.util.URLUtil;
 public class DomainStatistics extends Configured implements Tool {
 
   private static final Logger LOG = LoggerFactory
-      .getLogger(DomainStatistics.class);
+      .getLogger(MethodHandles.lookup().lookupClass());
 
   private static final Text FETCHED_TEXT = new Text("FETCHED");
   private static final Text NOT_FETCHED_TEXT = new Text("NOT_FETCHED");
@@ -67,8 +67,21 @@ public class DomainStatistics extends Configured implements Tool {
 
   public int run(String[] args) throws Exception {
     if (args.length < 3) {
-      System.out
-          .println("usage: DomainStatistics inputDirs outDir host|domain|suffix|tld [numOfReducer]");
+      System.err.println("Usage: DomainStatistics inputDirs outDir mode [numOfReducer]");
+
+      System.err.println("\tinputDirs\tComma separated list of crawldb input directories");
+      System.err.println("\t\t\tE.g.: crawl/crawldb/");
+
+      System.err.println("\toutDir\t\tOutput directory where results should be dumped");
+
+      System.err.println("\tmode\t\tSet statistics gathering mode");
+      System.err.println("\t\t\t\thost\tGather statistics by host");
+      System.err.println("\t\t\t\tdomain\tGather statistics by domain");
+      System.err.println("\t\t\t\tsuffix\tGather statistics by suffix");
+      System.err.println("\t\t\t\ttld\tGather statistics by top level directory");
+
+      System.err.println("\t[numOfReducers]\tOptional number of reduce jobs to use. Defaults to 1.");
+      
       return 1;
     }
     String inputDir = args[0];
@@ -103,12 +116,13 @@ public class DomainStatistics extends Configured implements Tool {
     conf.setInt("domain.statistics.mode", mode);
     conf.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs", false);
 
-    Job job = new Job(conf, jobName);
+    Job job = Job.getInstance(conf, jobName);
     job.setJarByClass(DomainStatistics.class);
 
     String[] inputDirsSpecs = inputDir.split(",");
     for (int i = 0; i < inputDirsSpecs.length; i++) {
-      FileInputFormat.addInputPath(job, new Path(inputDirsSpecs[i]));
+      File completeInputPath = new File(new File(inputDirsSpecs[i]), "current");
+      FileInputFormat.addInputPath(job, new Path(completeInputPath.toString()));
     }
 
     job.setInputFormatClass(SequenceFileInputFormat.class);

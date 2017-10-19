@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.SequenceFile.Reader.Option;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -65,7 +66,8 @@ public class TestInjector {
   }
 
   @Test
-  public void testInject() throws IOException {
+  public void testInject()
+      throws IOException, ClassNotFoundException, InterruptedException {
     ArrayList<String> urls = new ArrayList<String>();
     // We'll use a separate list for MD so we can still compare url with
     // containsAll
@@ -139,10 +141,11 @@ public class TestInjector {
 
   private List<String> readCrawldb() throws IOException {
     Path dbfile = new Path(crawldbPath, CrawlDb.CURRENT_NAME
-        + "/part-00000/data");
+        + "/part-r-00000/data");
     System.out.println("reading:" + dbfile);
+    Option rFile = SequenceFile.Reader.file(dbfile);
     @SuppressWarnings("resource")
-    SequenceFile.Reader reader = new SequenceFile.Reader(fs, dbfile, conf);
+    SequenceFile.Reader reader = new SequenceFile.Reader(conf, rFile);
     ArrayList<String> read = new ArrayList<String>();
 
     READ: do {
@@ -158,10 +161,11 @@ public class TestInjector {
 
   private HashMap<String, CrawlDatum> readCrawldbRecords() throws IOException {
     Path dbfile = new Path(crawldbPath, CrawlDb.CURRENT_NAME
-        + "/part-00000/data");
+        + "/part-r-00000/data");
     System.out.println("reading:" + dbfile);
+    Option rFile = SequenceFile.Reader.file(dbfile);
     @SuppressWarnings("resource")
-    SequenceFile.Reader reader = new SequenceFile.Reader(fs, dbfile, conf);
+    SequenceFile.Reader reader = new SequenceFile.Reader(conf, rFile);
     HashMap<String, CrawlDatum> read = new HashMap<String, CrawlDatum>();
 
     READ: do {

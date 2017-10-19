@@ -17,6 +17,7 @@
 package org.apache.nutch.protocol.httpclient;
 
 // JDK imports
+import java.lang.invoke.MethodHandles;
 import java.io.InputStream;
 import java.io.IOException;
 import java.net.URL;
@@ -62,21 +63,31 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.nutch.util.NutchConfiguration;
 
 /**
- * <p>This class is a protocol plugin that configures an HTTP client for Basic,
+ * <p>
+ * This class is a protocol plugin that configures an HTTP client for Basic,
  * Digest and NTLM authentication schemes for web server as well as proxy
  * server. It takes care of HTTPS protocol as well as cookies in a single fetch
- * session.</p>
- * <p>Documentation can be found on the Nutch <a href="https://wiki.apache.org/nutch/HttpAuthenticationSchemes">HttpAuthenticationSchemes</a>
- * wiki page.</p>
- * <p>The original description of the motivation to support <a href="https://wiki.apache.org/nutch/HttpPostAuthentication">HttpPostAuthentication</a>
- * is also included on the Nutch wiki. Additionally HttpPostAuthentication development is documented
- * at the <a href="https://issues.apache.org/jira/browse/NUTCH-827">NUTCH-827</a> Jira issue.
+ * session.
+ * </p>
+ * <p>
+ * Documentation can be found on the Nutch
+ * <a href="https://wiki.apache.org/nutch/HttpAuthenticationSchemes" >
+ * HttpAuthenticationSchemes</a> wiki page.
+ * </p>
+ * <p>
+ * The original description of the motivation to support
+ * <a href="https://wiki.apache.org/nutch/HttpPostAuthentication" >
+ * HttpPostAuthentication</a> is also included on the Nutch wiki. Additionally
+ * HttpPostAuthentication development is documented at the
+ * <a href="https://issues.apache.org/jira/browse/NUTCH-827">NUTCH-827</a> Jira
+ * issue.
  * 
  * @author Susam Pal
  */
 public class Http extends HttpBase {
 
-  public static final Logger LOG = LoggerFactory.getLogger(Http.class);
+  protected static final Logger LOG = LoggerFactory
+      .getLogger(MethodHandles.lookup().lookupClass());
 
   private static MultiThreadedHttpConnectionManager connectionManager = new MultiThreadedHttpConnectionManager();
 
@@ -137,6 +148,7 @@ public class Http extends HttpBase {
       setCredentials();
     } catch (Exception ex) {
       if (LOG.isErrorEnabled()) {
+        LOG.error("Http ", ex);
         LOG.error("Could not read " + authFile + " : " + ex.getMessage());
       }
     }
@@ -178,7 +190,7 @@ public class Http extends HttpBase {
   private void configureClient() {
 
     // Set up an HTTPS socket factory that accepts self-signed certs.
-    //ProtocolSocketFactory factory = new SSLProtocolSocketFactory();
+    // ProtocolSocketFactory factory = new SSLProtocolSocketFactory();
     ProtocolSocketFactory factory = new DummySSLProtocolSocketFactory();
     Protocol https = new Protocol("https", factory, 443);
     Protocol.registerProtocol("https", https);
@@ -188,12 +200,20 @@ public class Http extends HttpBase {
     params.setSoTimeout(timeout);
     params.setSendBufferSize(BUFFER_SIZE);
     params.setReceiveBufferSize(BUFFER_SIZE);
-    params.setMaxTotalConnections(maxThreadsTotal);
+
+    // --------------------------------------------------------------------------------
+    // NUTCH-1836: Modification to increase the number of available connections
+    // for multi-threaded crawls.
+    // --------------------------------------------------------------------------------
+    params.setMaxTotalConnections(
+        conf.getInt("mapred.tasktracker.map.tasks.maximum", 5)
+            * conf.getInt("fetcher.threads.fetch", maxThreadsTotal));
 
     // Also set max connections per host to maxThreadsTotal since all threads
     // might be used to fetch from the same host - otherwise timeout errors can
     // occur
-    params.setDefaultMaxConnectionsPerHost(maxThreadsTotal);
+    params.setDefaultMaxConnectionsPerHost(
+        conf.getInt("fetcher.threads.fetch", maxThreadsTotal));
 
     // executeMethod(HttpMethod) seems to ignore the connection timeout on the
     // connection manager.
@@ -202,17 +222,16 @@ public class Http extends HttpBase {
 
     HostConfiguration hostConf = client.getHostConfiguration();
     ArrayList<Header> headers = new ArrayList<Header>();
-    // Set the User Agent in the header
-    //headers.add(new Header("User-Agent", userAgent)); //NUTCH-1941
-    // prefer English
-    headers.add(new Header("Accept-Language", acceptLanguage));
-    // prefer UTF-8
-    headers.add(new Header("Accept-Charset", "utf-8,ISO-8859-1;q=0.7,*;q=0.7"));
-    // prefer understandable formats
-    headers
-    .add(new Header(
-        "Accept",
-        "text/html,application/xml;q=0.9,application/xhtml+xml,text/xml;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5"));
+    // Note: some header fields (e.g., "User-Agent") are set per GET request
+    if (!acceptLanguage.isEmpty()) {
+      headers.add(new Header("Accept-Language", acceptLanguage));
+    }
+    if (!acceptCharset.isEmpty()) {
+      headers.add(new Header("Accept-Charset", acceptCharset));
+    }
+    if (!accept.isEmpty()) {
+      headers.add(new Header("Accept", accept));
+    }
     // accept gzipped content
     headers.add(new Header("Accept-Encoding", "x-gzip, gzip, deflate"));
     hostConf.getParams().setParameter("http.default-headers", headers);
@@ -249,7 +268,6 @@ public class Http extends HttpBase {
    */
   private static synchronized void setCredentials()
       throws ParserConfigurationException, SAXException, IOException {
-
     if (authRulesRead)
       return;
 
@@ -287,8 +305,7 @@ public class Http extends HttpBase {
         String authMethod = credElement.getAttribute("authMethod");
         // read http form post auth info
         if (StringUtils.isNotBlank(authMethod)) {
-          formConfigurer = readFormAuthConfigurer(credElement,
-              authMethod);
+          formConfigurer = readFormAuthConfigurer(credElement, authMethod);
           continue;
         }
 
@@ -317,9 +334,9 @@ public class Http extends HttpBase {
             defaultScheme = scheme;
 
             if (LOG.isTraceEnabled()) {
-              LOG.trace("Credentials - username: " + username
-                  + "; set as default" + " for realm: " + realm + "; scheme: "
-                  + scheme);
+              LOG.trace(
+                  "Credentials - username: " + username + "; set as default"
+                      + " for realm: " + realm + "; scheme: " + scheme);
             }
 
           } else if ("authscope".equals(scopeElement.getTagName())) {
@@ -361,12 +378,16 @@ public class Http extends HttpBase {
   }
 
   /**
-   * <auth-configuration> <credentials authMethod="formAuth"
-   * loginUrl="loginUrl" loginFormId="loginFormId" loginRedirect="true">
-   * <loginPostData> <field name="username" value="user1"/> </loginPostData>
+   * <auth-configuration> <credentials authMethod="formAuth" loginUrl="loginUrl"
+   * loginFormId="loginFormId" loginRedirect="true"> <loginPostData> <field name
+   * ="username" value="user1"/> </loginPostData>
    * <additionalPostHeaders> <field name="header1" value="vaule1"/>
-   * </additionalPostHeaders> <removedFormFields> <field name="header1"/>
-   * </removedFormFields> </credentials> </auth-configuration>
+   * </additionalPostHeaders>
+   * <removedFormFields> <field name="header1"/> </removedFormFields> <!--
+   * NUTCH-2280: Add <loginCookie> and it sub-node <policy> nodes into the
+   * <credentials> node. The <policy> will mark the POST login form cookie
+   * policy. The value could be CookiePolicy.<ConstantValues>.
+   * --> </credentials> </auth-configuration>
    */
   private static HttpFormAuthConfigurer readFormAuthConfigurer(
       Element credElement, String authMethod) {
@@ -391,6 +412,7 @@ public class Http extends HttpBase {
       }
 
       NodeList nodeList = credElement.getChildNodes();
+
       for (int j = 0; j < nodeList.getLength(); j++) {
         Node node = nodeList.item(j);
         if (!(node instanceof Element))
@@ -424,8 +446,7 @@ public class Http extends HttpBase {
             String value = fieldElement.getAttribute("value");
             additionalPostHeaders.put(name, value);
           }
-          formConfigurer
-          .setAdditionalPostHeaders(additionalPostHeaders);
+          formConfigurer.setAdditionalPostHeaders(additionalPostHeaders);
         } else if ("removedFormFields".equals(element.getTagName())) {
           Set<String> removedFormFields = new HashSet<String>();
           NodeList childNodes = element.getChildNodes();
@@ -439,13 +460,28 @@ public class Http extends HttpBase {
             removedFormFields.add(name);
           }
           formConfigurer.setRemovedFormFields(removedFormFields);
+        } else if ("loginCookie".equals(element.getTagName())) {
+          // NUTCH-2280
+          LOG.debug("start loginCookie");
+          NodeList childNodes = element.getChildNodes();
+          for (int k = 0; k < childNodes.getLength(); k++) {
+            Node fieldNode = childNodes.item(k);
+            if (!(fieldNode instanceof Element))
+              continue;
+            Element fieldElement = (Element) fieldNode;
+            if ("policy".equals(fieldElement.getTagName())) {
+              String policy = fieldElement.getTextContent();
+              formConfigurer.setCookiePolicy(policy);
+              LOG.debug("cookie policy is " + policy);
+            }
+          }
         }
       }
 
       return formConfigurer;
     } else {
-      throw new IllegalArgumentException("Unsupported authMethod: "
-          + authMethod);
+      throw new IllegalArgumentException(
+          "Unsupported authMethod: " + authMethod);
     }
   }
 
@@ -495,8 +531,9 @@ public class Http extends HttpBase {
       }
 
       if (LOG.isTraceEnabled())
-        LOG.trace("Pre-configured credentials with scope -  host: "
-            + url.getHost() + "; port: " + port + "; not found for url: " + url);
+        LOG.trace(
+            "Pre-configured credentials with scope -  host: " + url.getHost()
+                + "; port: " + port + "; not found for url: " + url);
 
       AuthScope serverAuthScope = getAuthScope(url.getHost(), port,
           defaultRealm, defaultScheme);

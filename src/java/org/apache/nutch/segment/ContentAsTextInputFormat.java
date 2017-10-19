@@ -47,7 +47,7 @@ public class ContentAsTextInputFormat extends
 
     public ContentAsTextRecordReader(Configuration conf, FileSplit split)
         throws IOException {
-      sequenceFileRecordReader = new SequenceFileRecordReader<Text, Content>(
+      sequenceFileRecordReader = new SequenceFileRecordReader<>(
           conf, split);
       innerKey = sequenceFileRecordReader.createKey();
       innerValue = sequenceFileRecordReader.createValue();
@@ -65,7 +65,6 @@ public class ContentAsTextInputFormat extends
 
       // convert the content object to text
       Text tKey = key;
-      Text tValue = value;
       if (!sequenceFileRecordReader.next(innerKey, innerValue)) {
         return false;
       }

@@ -45,7 +45,7 @@ public class Extension {
   public Extension(PluginDescriptor pDescriptor, String pExtensionPoint,
       String pId, String pExtensionClass, Configuration conf,
       PluginRepository pluginRepository) {
-    fAttributes = new HashMap<String, String>();
+    fAttributes = new HashMap<>();
     setDescriptor(pDescriptor);
     setExtensionPoint(pExtensionPoint);
     setId(pId);
@@ -153,7 +153,7 @@ public class Extension {
     synchronized (getId()) {
       try {
         PluginRepository pluginRepository = PluginRepository.get(conf);
-        Class extensionClazz = pluginRepository.getCachedClass(fDescriptor,
+        Class<?> extensionClazz = pluginRepository.getCachedClass(fDescriptor,
             getClazz());
         // lazy loading of Plugin in case there is no instance of the plugin
         // already.

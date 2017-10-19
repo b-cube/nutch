@@ -16,50 +16,63 @@
  */
 package org.apache.nutch.indexwriter.solr;
 
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.auth.AuthScope;
-import org.apache.commons.httpclient.UsernamePasswordCredentials;
-import org.apache.commons.httpclient.params.HttpClientParams;
+import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.solr.client.solrj.impl.CommonsHttpSolrServer;
+import org.apache.solr.client.solrj.SolrClient;
+import org.apache.solr.client.solrj.impl.HttpSolrClient;
+import org.apache.solr.client.solrj.impl.CloudSolrClient;
 
 import java.net.MalformedURLException;
 
 public class SolrUtils {
 
-  public static Logger LOG = LoggerFactory.getLogger(SolrUtils.class);
+  private static final Logger LOG = LoggerFactory
+      .getLogger(MethodHandles.lookup().lookupClass());
 
-  public static CommonsHttpSolrServer getCommonsHttpSolrServer(JobConf job)
-      throws MalformedURLException {
-    HttpClient client = new HttpClient();
-
-    // Check for username/password
-    if (job.getBoolean(SolrConstants.USE_AUTH, false)) {
-      String username = job.get(SolrConstants.USERNAME);
-
-      LOG.info("Authenticating as: " + username);
-
-      AuthScope scope = new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT,
-          AuthScope.ANY_REALM, AuthScope.ANY_SCHEME);
-
-      client.getState().setCredentials(
-          scope,
-          new UsernamePasswordCredentials(username, job
-              .get(SolrConstants.PASSWORD)));
-
-      HttpClientParams params = client.getParams();
-      params.setAuthenticationPreemptive(true);
-
-      client.setParams(params);
+  /**
+   *
+   *
+   * @param job
+   * @return SolrClient
+   */
+  public static ArrayList<SolrClient> getSolrClients(JobConf job) throws MalformedURLException {
+    String[] urls = job.getStrings(SolrConstants.SERVER_URL);
+    String[] zkHostString = job.getStrings(SolrConstants.ZOOKEEPER_HOSTS);
+    ArrayList<SolrClient> solrClients = new ArrayList<SolrClient>();
+    
+    if (zkHostString != null && zkHostString.length > 0) {
+      for (int i = 0; i < zkHostString.length; i++) {
+        CloudSolrClient sc = getCloudSolrClient(zkHostString[i]);
+        sc.setDefaultCollection(job.get(SolrConstants.COLLECTION));
+        solrClients.add(sc);
+      }
+    } else {
+      for (int i = 0; i < urls.length; i++) {
+        SolrClient sc = new HttpSolrClient(urls[i]);
+        solrClients.add(sc);
+      }
     }
 
-    String serverURL = job.get(SolrConstants.SERVER_URL);
-
-    return new CommonsHttpSolrServer(serverURL, client);
+    return solrClients;
   }
 
+  public static CloudSolrClient getCloudSolrClient(String url) throws MalformedURLException {
+    CloudSolrClient sc = new CloudSolrClient(url.replace('|', ','));
+    sc.setParallelUpdates(true);
+    sc.connect();
+    return sc;
+  }
+
+  public static SolrClient getHttpSolrClient(String url) throws MalformedURLException {
+    SolrClient sc =new HttpSolrClient(url);
+    return sc;
+  }
+  
   public static String stripNonCharCodepoints(String input) {
     StringBuilder retval = new StringBuilder();
     char ch;
@@ -82,4 +95,5 @@ public class SolrUtils {
 
     return retval.toString();
   }
+
 }

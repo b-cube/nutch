@@ -17,6 +17,7 @@
 package org.apache.nutch.segment;
 
 import java.io.IOException;
+import java.lang.invoke.MethodHandles;
 
 import org.apache.nutch.crawl.CrawlDatum;
 import org.apache.nutch.parse.ParseText;
@@ -35,8 +36,8 @@ import org.slf4j.LoggerFactory;
  */
 public class SegmentChecker {
 
-  public static final Logger LOG = LoggerFactory
-      .getLogger(SegmentChecker.class);
+  private static final Logger LOG = LoggerFactory
+      .getLogger(MethodHandles.lookup().lookupClass());
 
   /**
    * Check if the segment is indexable. May add new check methods here.
@@ -65,6 +66,11 @@ public class SegmentChecker {
   public static boolean checkSegmentDir(Path segmentPath, FileSystem fs)
       throws IOException {
 
+    if (segmentPath.getName().length() != 14) {
+      LOG.warn("The input path at {} is not a segment... skipping", segmentPath.getName());
+      return false;
+    }
+    
     FileStatus[] fstats_segment = fs.listStatus(segmentPath,
         HadoopFSUtil.getPassDirectoriesFilter(fs));
     Path[] segment_files = HadoopFSUtil.getPaths(fstats_segment);
@@ -113,6 +119,19 @@ public class SegmentChecker {
 
       return false;
     }
+
+  }
+
+  /**
+   * Check the segment to see if it is has been parsed before.
+   */
+  public static boolean isParsed(Path segment, FileSystem fs)
+      throws IOException {
+
+      if (fs.exists(new Path(segment, CrawlDatum.PARSE_DIR_NAME))){
+	return true;
+      }
+      return false;
   }
 
 }

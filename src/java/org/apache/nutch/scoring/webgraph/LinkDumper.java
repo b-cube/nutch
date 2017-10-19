@@ -19,6 +19,7 @@ package org.apache.nutch.scoring.webgraph;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.lang.invoke.MethodHandles;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -59,7 +60,6 @@ import org.apache.hadoop.mapred.lib.HashPartitioner;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
-import org.apache.nutch.scoring.webgraph.Loops.LoopSet;
 import org.apache.nutch.util.FSUtils;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
@@ -73,7 +73,8 @@ import org.apache.nutch.util.TimingUtil;
  */
 public class LinkDumper extends Configured implements Tool {
 
-  public static final Logger LOG = LoggerFactory.getLogger(LinkDumper.class);
+  private static final Logger LOG = LoggerFactory
+      .getLogger(MethodHandles.lookup().lookupClass());
   public static final String DUMP_DIR = "linkdump";
 
   /**
@@ -92,8 +93,8 @@ public class LinkDumper extends Configured implements Tool {
 
       // open the readers for the linkdump directory
       Configuration conf = NutchConfiguration.create();
-      FileSystem fs = FileSystem.get(conf);
       Path webGraphDb = new Path(args[0]);
+      FileSystem fs = webGraphDb.getFileSystem(conf);
       String url = args[1];
       MapFile.Reader[] readers = MapFileOutputFormat.getReaders(fs, new Path(
           webGraphDb, DUMP_DIR), conf);
@@ -102,7 +103,7 @@ public class LinkDumper extends Configured implements Tool {
       Text key = new Text(url);
       LinkNodes nodes = new LinkNodes();
       MapFileOutputFormat.getEntry(readers,
-          new HashPartitioner<Text, LinkNodes>(), key, nodes);
+          new HashPartitioner<>(), key, nodes);
 
       // print out the link nodes
       LinkNode[] linkNodesAr = nodes.getLinks();
@@ -244,11 +245,10 @@ public class LinkDumper extends Configured implements Tool {
         throws IOException {
 
       String fromUrl = key.toString();
-      List<LinkDatum> outlinks = new ArrayList<LinkDatum>();
+      List<LinkDatum> outlinks = new ArrayList<>();
       Node node = null;
-      LoopSet loops = null;
-
-      // loop through all values aggregating outlinks, saving node and loopset
+      
+      // loop through all values aggregating outlinks, saving node
       while (values.hasNext()) {
         ObjectWritable write = values.next();
         Object obj = write.get();
@@ -256,24 +256,15 @@ public class LinkDumper extends Configured implements Tool {
           node = (Node) obj;
         } else if (obj instanceof LinkDatum) {
           outlinks.add(WritableUtils.clone((LinkDatum) obj, conf));
-        } else if (obj instanceof LoopSet) {
-          loops = (LoopSet) obj;
         }
       }
 
       // only collect if there are outlinks
       int numOutlinks = node.getNumOutlinks();
       if (numOutlinks > 0) {
-
-        Set<String> loopSet = (loops != null) ? loops.getLoopSet() : null;
         for (int i = 0; i < outlinks.size(); i++) {
           LinkDatum outlink = outlinks.get(i);
           String toUrl = outlink.getUrl();
-
-          // remove any url that is in the loopset, same as LinkRank
-          if (loopSet != null && loopSet.contains(toUrl)) {
-            continue;
-          }
 
           // collect the outlink as an inlink with the node
           output.collect(new Text(toUrl), new LinkNode(fromUrl, node));
@@ -306,7 +297,7 @@ public class LinkDumper extends Configured implements Tool {
         OutputCollector<Text, LinkNodes> output, Reporter reporter)
         throws IOException {
 
-      List<LinkNode> nodeList = new ArrayList<LinkNode>();
+      List<LinkNode> nodeList = new ArrayList<>();
       int numNodes = 0;
 
       while (values.hasNext()) {
@@ -339,12 +330,10 @@ public class LinkDumper extends Configured implements Tool {
     long start = System.currentTimeMillis();
     LOG.info("NodeDumper: starting at " + sdf.format(start));
     Configuration conf = getConf();
-    FileSystem fs = FileSystem.get(conf);
+    FileSystem fs = webGraphDb.getFileSystem(conf);
 
     Path linkdump = new Path(webGraphDb, DUMP_DIR);
     Path nodeDb = new Path(webGraphDb, WebGraph.NODE_DIR);
-    Path loopSetDb = new Path(webGraphDb, Loops.LOOPS_DIR);
-    boolean loopsExists = fs.exists(loopSetDb);
     Path outlinkDb = new Path(webGraphDb, WebGraph.OUTLINK_DIR);
 
     // run the inverter job
@@ -353,9 +342,6 @@ public class LinkDumper extends Configured implements Tool {
     JobConf inverter = new NutchJob(conf);
     inverter.setJobName("LinkDumper: inverter");
     FileInputFormat.addInputPath(inverter, nodeDb);
-    if (loopsExists) {
-      FileInputFormat.addInputPath(inverter, loopSetDb);
-    }
     FileInputFormat.addInputPath(inverter, outlinkDb);
     inverter.setInputFormat(SequenceFileInputFormat.class);
     inverter.setMapperClass(Inverter.class);
