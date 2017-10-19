@@ -164,11 +164,7 @@
 
 <property>
   <name>http.agent.version</name>
-<<<<<<< HEAD
-  <value>Nutch-1.10</value>
-=======
   <value>Nutch-1.14-SNAPSHOT</value>
->>>>>>> upstream/master
   <description>A version string to advertise in the User-Agent 
    header.</description>
 </property>
