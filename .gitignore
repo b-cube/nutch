@@ -7,5 +7,6 @@ runtime/
 logs/
 crawl*
 hadoop.log
+.idea/
 .classpath
 .project
