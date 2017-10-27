@@ -115,7 +115,7 @@
             <ant dir="index-rawcontent" target="test"/>
             <ant dir="index-replace" target="test"/>
             <ant dir="index-static" target="test"/>
-            <ant dir="indexer-elastic" target="test"/>
+        	<!--<ant dir="indexer-elastic" target="test"/> -->
             <ant dir="language-identifier" target="test"/>
             <ant dir="lib-http" target="test"/>
             <ant dir="lib-regex-filter" target="test"/>
