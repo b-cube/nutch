@@ -400,6 +400,17 @@
 
     <!-- fields for creativecommons plugin -->
     <field name="cc" type="string" stored="true" indexed="true" multiValued="true"/>
+ 	<!-- fields for index-rawcontent plugin -->
+    <field name="raw_content" type="text_general" stored="true" indexed="true" multiValued="false"/>
+    <!-- field for index-xmlnamespaces plugin -->
+    <field name="xml_namespaces" type="string" stored="true" indexed="true" multiValued="true"/>
+    <!-- field for index-links plugin -->
+    <field name="inlinks" type="string" stored="true" indexed="true" multiValued="true"/>
+    <field name="outlinks" type="string" stored="true" indexed="true" multiValued="true"/>
+    <!-- field for index-bcubefilter plugin -->
+    <field name="url_hash" type="string" stored="true" indexed="true" multiValued="false"/>
+    <!-- field for index-httpresponse plugin -->
+    <field name="response_headers" type="string" stored="true" indexed="true" multiValued="true"/>    
 
     <!-- fields for tld plugin -->    
     <field name="tld" type="string" stored="false" indexed="false"/>
