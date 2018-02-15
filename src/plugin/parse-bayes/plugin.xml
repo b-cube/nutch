@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<plugin id="parse-bayes"
+        name="Nutch Bayes Content Parser"
+        version="0.0.1"
+        provider-name="nsidc.org">
+
+   	<runtime>
+      	<library name="parse-bayes.jar">
+         	<export name="*"/>
+      	</library>
+   	</runtime>
+
+   	<requires>
+      	<import plugin="nutch-extensionpoints"/>
+   	</requires>
+
+   	<extension id="org.nsidc.nutch.parse.bayes"
+   	           name="Nutch Bayes Content Filter"
+   	           point="org.apache.nutch.parse.HtmlParseFilter">
+
+      	<implementation id="org.nsidc.nutch.parse.bayes.BayesParseFilter"
+                        class="org.nsidc.nutch.parse.bayes.BayesParseFilter" >
+
+        	</implementation>
+   	</extension>
+
+</plugin>

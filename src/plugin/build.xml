@@ -44,6 +44,7 @@
         <ant dir="index-metadata" target="deploy"/>
         <ant dir="index-more" target="deploy"/>
         <ant dir="index-rawcontent" target="deploy"/>
+        <ant dir="index-xmlnamespaces" target="deploy"/>
         <ant dir="index-replace" target="deploy"/>
         <ant dir="index-static" target="deploy"/>
         <ant dir="indexer-cloudsearch" target="deploy"/>
@@ -56,6 +57,7 @@
         <ant dir="microformats-reltag" target="deploy"/>
         <ant dir="mimetype-filter" target="deploy"/>
         <ant dir="nutch-extensionpoints" target="deploy"/>
+        <ant dir="parse-bayes" target="deploy"/>
         <ant dir="parse-ext" target="deploy"/>
         <ant dir="parse-html" target="deploy"/>
         <ant dir="parse-js" target="deploy"/>
@@ -113,6 +115,7 @@
             <ant dir="index-links" target="test"/>
             <ant dir="index-more" target="test"/>
             <ant dir="index-rawcontent" target="test"/>
+             <ant dir="index-xmlnamespaces" target="test"/>
             <ant dir="index-replace" target="test"/>
             <ant dir="index-static" target="test"/>
         	<!--<ant dir="indexer-elastic" target="test"/> -->
@@ -120,7 +123,7 @@
             <ant dir="lib-http" target="test"/>
             <ant dir="lib-regex-filter" target="test"/>
             <ant dir="mimetype-filter" target="test"/>
-            <!--ant dir="parse-ext" target="test"/-->
+            <ant dir="parse-bayes" target="test"/>
             <ant dir="parse-html" target="test"/>
             <ant dir="parse-metatags" target="test"/>
             <ant dir="parse-rawcontent" target="test"/>
@@ -165,6 +168,7 @@
         <ant dir="index-metadata" target="clean"/>
         <ant dir="index-more" target="clean"/>
         <ant dir="index-rawcontent" target="clean"/>
+        <ant dir="index-xmlnamespaces" target="clean"/>
         <ant dir="index-replace" target="clean"/>
         <ant dir="index-static" target="clean"/>
         <ant dir="indexer-cloudsearch" target="clean"/>
@@ -183,6 +187,7 @@
         <ant dir="microformats-reltag" target="clean"/>
         <ant dir="mimetype-filter" target="clean"/>
         <ant dir="nutch-extensionpoints" target="clean"/>
+        <ant dir="parse-bayes" target="clean"/>
         <ant dir="parse-ext" target="clean"/>
         <ant dir="parse-html" target="clean"/>
         <ant dir="parse-js" target="clean"/>
