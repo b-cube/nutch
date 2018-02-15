@@ -1,0 +1,33 @@
+1	relevant	Observatory Acoustic Doppler Model Current Profiler Service Temperature Climate
+2	relevant	Multibeam Synthesis Bathymetry Data Elevation Topography Ice Service Instruments
+3	relevant	Regional Ocean Modeling System Weather REST Dataset Shore Variable Ocean Atmosphere
+4	relevant	Digital Elevation Model Forecast System Weather Research Atmospheric Model Polar
+5	relevant	Water Earth River Wave Monitoring Surveys Marine Sensor PMH Remote Nearest Station
+6	relevant	Grid Map Synthesis Surface Dataset Sensor Weather Variables Air Global Records Glacial
+7	relevant	Temperature Depth CRYOSPHERIC BIOLOGICAL LAKE TERRESTRIAL GROUND EXTENT SNOW ICE
+8	relevant	BOUNDARIES ENVIRONMENTAL GEOTHERMAL ENERGY LANDFORMS LAND COASTAL SERVICE TECTONIC
+9	relevant	SOIL TEMPERATURE TERRAIN SEAFLOOR IRRADIANCE DIFFUSION LAYER WINDS TIDAL ICE WMS
+10	relevant	ELEMENTS REFLECTION FIELD POSITION TECTONICS EARTQUAKE SPECTRAL GEOMETRY IONOSPHERE
+11	relevant	MAGNETOSPHERE GEOMAGNETIC PLASMA ULTRAVIOLET EMISSIONS ACTIVE MASS IMAGERY IMAGES MAPS
+12	relevant	PARTICLE DENSITY FLUX ZONES PROPERTIES MASS FLOODS HYDROSPHERE SOLID EARTH DYNAMICS
+13	relevant	Earth Remote Sensing Instruments Vegetation Ice Sensor Radar Altimeters Beam Lidar
+14	relevant	Imaging ECHO Laser Cloud Lidar System L-Band Aerial Array Precipitation Instrument
+15	relevant	Spectrometers Absorption Radiometers Altimeter Magnetic Passive Detectors Cameras Arctic
+16	relevant	Imager Resolution Stereoscopic Scanning WMS Photometer Scanner STATION GPS navigation
+17	relevant	Vertical Atmospheric Emitted Radiance Interferometer WCS Measurements Measurement InfraRed
+18	relevant	MicroWave Humidity Operational Project Ultraviolet Spectrometers Visible Scanning Linear
+19	relevant	Multichannel Channel Lightning Instrument Resolution system Mapping Aerosol Chemical
+20	relevant	Measuring Range STATIONS Satellites SATELLITE RADIO Air Map Sensing Observing Earth
+21	ignore	Accept credit cards Click to remove mailto Free membership Casino Investment money order today
+22	ignore	Expect to earn Financial freedom Investment decision extra cash Limited time only Sign up free
+23	ignore	Opportunity passwords payment Marketing Education Increase signature form inventory medical
+24	ignore	income Viagra other Bonus drugs Unsecured exams customers trial offer statement wordpress magazine
+25	ignore	cpan staff software jira w3 review gallery ietf windows cite xmlrpc svn apache sport bulletin
+26	ignore	forum senate browse plugins FAQ module contact license images about faq embassy foia library student
+27	ignore	grant wlwmanifest reports news blog calendar schedule publish contrib publication twitter
+28	ignore	citation keyword gnu libraries people policy article presentation media video conference summit
+29	ignore	theme guide manual upload music personal shop cart retail thumbnail author health tags event
+30	ignore	itemid zenodo seminar courses syndication finance mail phone Buy direct No cost Profits Profit
+31	ignore	business compliance bankruptcy Problem Solution traffic sales Insurance Giving away purchase about
+32	relevant	portal charts science nasa catalog categories visualizations apis api space
+33	relevant	NOAA window NASA globe Thermal REST Webservice JSON XML Tool Meter KM Mile DATA
